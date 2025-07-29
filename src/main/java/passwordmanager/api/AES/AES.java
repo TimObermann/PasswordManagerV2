@@ -1,28 +1,17 @@
-package passwordmanager.api;
+package passwordmanager.api.AES;
 
 import java.util.Arrays;
 
-
-class InvalidKeyException extends RuntimeException {
-    public InvalidKeyException() {
-        super();
-    }
-}
 
 public class AES {
 
     //https://tsapps.nist.gov/publication/get_pdf.cfm?pub_id=901427
 
-    enum AES_VARIANT {
-        AES_128,
-        AES_192,
-        AES_256
-    }
-
     private final byte Nb;
     private final byte Nk;
     private final byte Nr;
-    private final AES_VARIANT variant;
+    private final AES_SIZE size;
+    private final AES_MODE variant;
 
 
     private final byte[][] SBox = {
@@ -95,10 +84,11 @@ public class AES {
             {0x4D, 0x00, 0x00, 0x00}
     };
 
-    public AES(AES_VARIANT variant){
+    public AES(AES_SIZE size, AES_MODE variant){
+        this.size = size;
         this.variant = variant;
 
-        switch (variant) {
+        switch (size) {
             case AES_128 -> {
                 this.Nk = 4;
                 this.Nb = 4;
@@ -116,6 +106,14 @@ public class AES {
             }
             default -> throw new IllegalStateException("Fuck the language server");
         }
+    }
+
+    public AES(AES_SIZE size) {
+        this(size, AES_MODE.ECB);
+    }
+
+    public AES(){
+        this(AES_SIZE.AES_256, AES_MODE.ECB);
     }
 
 
@@ -281,7 +279,7 @@ public class AES {
 
         byte[][] inputs = new byte[padded_cleartext.length / 16][16];
         byte[] key_bytes = new byte[Nk * 4];
-        byte[] ciphertext = new byte[padded_cleartext.length];
+        byte[] ciphertext;
 
         for (int i = 0; i < padded_cleartext.length; i++) {
             inputs[i / 16][i % 16] = padded_cleartext[i];
@@ -298,18 +296,78 @@ public class AES {
         //AES start
         int[] expanded_key_schedule = key_expansion(key_bytes);
 
-        for (int i = 0; i < inputs.length; i++) {
-            byte[][] state = c(inputs[i], expanded_key_schedule);
+        if(variant == AES_MODE.ECB){
+            ciphertext = new byte[padded_cleartext.length];
 
-            for (int j = 0; j < 4; j++) {
-                for (int k = 0; k < 4; k++) {
-                    ciphertext[(i << 4) + ((k << 2) + j)] = state[j][k];
+            for (int i = 0; i < inputs.length; i++) {
+                byte[][] state = c(inputs[i], expanded_key_schedule);
+
+                for (int j = 0; j < 4; j++) {
+                    for (int k = 0; k < 4; k++) {
+                        ciphertext[(i << 4) + ((k << 2) + j)] = state[j][k];
+                    }
                 }
             }
         }
+        else if(variant == AES_MODE.CBC) {
+            byte[] lastBlock = generateIV();
+            ciphertext = new byte[padded_cleartext.length + lastBlock.length];
+            System.arraycopy(lastBlock, 0, ciphertext, 0, lastBlock.length);
+
+            for (int i = 0; i < inputs.length; i++) {
+                byte[][] state = c(bytes_xor(inputs[i], lastBlock), expanded_key_schedule);
+
+                for (int j = 0; j < 4; j++) {
+                    for (int k = 0; k < 4; k++) {
+                        ciphertext[lastBlock.length + (i << 4) + ((k << 2) + j)] = state[j][k];
+                        lastBlock[(j << 2) + k] = state[j][k];
+                    }
+                }
+            }
+        }
+        else {
+            throw new IllegalStateException("Unimplemented");
+        }
+
 
         return ciphertext;
     }
+
+    private byte[] bytes_xor(byte[] p, byte[] c) {
+
+        byte[] o = new byte[p.length];
+        for (int i = 0; i < p.length; i++) {
+            o[i] = (byte) (p[i] ^ c[i]);
+        }
+        return o;
+    }
+
+
+    private byte[] generateIV(){
+
+        int x =  (int)(System.nanoTime() & 0xFFFF);
+        int l = (int)(Runtime.getRuntime().freeMemory() & 255);
+        for (int i = 0; i < l; i++) {
+            if(i % 2 == 0){
+                x += System.identityHashCode(new Object());
+            }
+            else {
+                x ^= System.identityHashCode(new Object());
+            }
+        }
+        x += (int)(Runtime.getRuntime().maxMemory() & 65535);
+        x += (int)((long)(Thread.getAllStackTraces().keySet().size() + System.nanoTime()) & 16777215);
+
+        byte[] o = new byte[16];
+
+        for (int i = 0; i < 16; i++) {
+            o[i] = (byte)(x & 0xFF);
+            x >>= 8;
+        }
+
+        return o;
+    }
+
 
 
     public byte[] decrypt(byte[] ciphertext, int[] key) {

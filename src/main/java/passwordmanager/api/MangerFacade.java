@@ -1,27 +1,90 @@
 package passwordmanager.api;
 
 
+import passwordmanager.api.AES.*;
+import passwordmanager.api.SHA2.SHA2;
+import java.util.Arrays;
 
 public class MangerFacade {
     public static void main(String[] args) {
-        AES crypt = new AES(AES.AES_VARIANT.AES_256);
+        run_SHA_test();
+    }
+
+    private static void run_SHA_test(){
+        SHA2 sha = new SHA2();
+
+        long start = System.currentTimeMillis();
+
+        sha.insert("".getBytes());
+        System.out.println(bytesToHexString(sha.generate()));
+
+        long end = System.currentTimeMillis();
+        System.out.println(end - start);
+
+        start = System.currentTimeMillis();
+        sha.insert("abc".getBytes());
+        System.out.println(bytesToHexString(sha.generate()));
+        end = System.currentTimeMillis();
+        System.out.println(end - start);
+
+        start = System.currentTimeMillis();
+        sha.insert("abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu".getBytes());
+        System.out.println(bytesToHexString(sha.generate()));
+        end = System.currentTimeMillis();
+        System.out.println(end - start);
+
+        start = System.currentTimeMillis();
+        for (int i = 0; i < 1000000; i++) {
+            sha.insert("a".getBytes());
+        }
+        System.out.println(bytesToHexString(sha.generate()));
+        end = System.currentTimeMillis();
+        System.out.println(end - start);
+    }
+
+    private static String bytesToHexString(byte[] bytes) {
+        if (bytes == null) {
+            return null;
+        }
+        StringBuilder hexString = new StringBuilder();
+        for (byte b : bytes) {
+            hexString.append(String.format("%02x", b));
+        }
+        return hexString.toString();
+    }
+
+
+    private static void run_AES_Test(){
+        AES crypt = new AES(AES_SIZE.AES_256);
 
         int[] key = new int[]{
-                0x603deb10, 0x15ca71be, 0x2b73aef0, 0x857d7781,
-                0x1f352c07, 0x3b6108d7, 0x2d9810a3, 0x0914dff4
+                0x00010203,
+                0x04050607,
+                0x08090a0b,
+                0x0c0d0e0f,
+                0x10111213,
+                0x14151617,
+                0x18191a1b,
+                0x1c1d1e1f
         };
 
         byte[] plaintext = new byte[]{
-               1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, -1
+                (byte) 0x00, (byte) 0x11, (byte) 0x22, (byte) 0x33,
+                (byte) 0x44, (byte) 0x55, (byte) 0x66, (byte) 0x77,
+                (byte) 0x88, (byte) 0x99, (byte) 0xaa, (byte) 0xbb,
+                (byte) 0xcc, (byte) 0xdd, (byte) 0xee, (byte) 0xff
         };
 
-        String str_cleartext = "Hello AES!";
+        String str_cleartext = "Hello My Darling AES";
 
-        byte[] ciphertext = crypt.encrypt(str_cleartext.getBytes(), key);
-        String decrypted = new String(crypt.decrypt(ciphertext, key));
+        byte[] ciphertext = crypt.encrypt(plaintext, key);
+        byte[] decrypted = crypt.decrypt(ciphertext, key);
 
+        for (byte b : ciphertext) {
+            System.out.printf("%02x", b & 0xFF);
+        }
 
-        System.out.println(decrypted);
+        System.out.println(Arrays.toString(decrypted));
 
     }
 }
