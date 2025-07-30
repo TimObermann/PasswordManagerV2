@@ -36,57 +36,36 @@ public class SHA2 {
             0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
     };
 
-    private int message_len = 0;
     private int[] message_schedule;
     private byte[] message;
-
+    private int message_len;
+    private int message_offset;
 
     public SHA2() {
-        message = new byte[0];
+        message = new byte[64];
+        message_len = 0;
+        message_offset = 0;
     }
 
     public void insert(byte[] b) {
+        message_len += b.length;
+        int b_offset = 0;
 
-        if(message.length == 0) {
-            byte[] newMessage = new byte[b.length];
-            System.arraycopy(b, 0, newMessage, 0, b.length);
-            this.message = newMessage;
-            this.message_len = b.length;
-            return;
+        while (b_offset < b.length) {
+
+            int copy_bytes = Math.min(64 - message_offset, b.length - b_offset);
+
+            System.arraycopy(b, b_offset, message, message_offset, copy_bytes);
+
+            b_offset += copy_bytes;
+            message_offset += copy_bytes;
+
+            if(message_offset == 64) {
+                process_block(message);
+                compress();
+                message_offset = 0;
+            }
         }
-
-        if(message_len + b.length > message.length) {
-            byte[] newMessage = new byte[(message_len + b.length + 511) & ~511];
-            System.arraycopy(message, 0, newMessage, 0, message_len);
-            this.message = newMessage;
-        }
-
-        System.arraycopy(b, 0, message, message_len, b.length);
-
-        this.message_len += b.length;
-    }
-
-    private void padding(){
-
-        long L = Integer.toUnsignedLong(message_len << 3);
-        int padding_amount = 64 - ((message_len + 9) & 63);
-
-        if (padding_amount == 64){
-            padding_amount = 0;
-        }
-
-        int total_length = message_len + 9 + padding_amount;
-        byte[] padded_message = new byte[total_length];
-
-        System.arraycopy(message, 0, padded_message,0, message_len);
-        padded_message[message_len] = (byte) 0x80;
-
-        for (int i = 0; i < 8; i++) {
-            padded_message[total_length - 8 + i] = (byte) ((L >>> (56 - (i << 3))) & 0xFF);
-        }
-
-        this.message = padded_message;
-        this.message_len = total_length;
     }
 
     private void process_block(byte[] block) {
@@ -156,16 +135,29 @@ public class SHA2 {
 
     public byte[] generate() {
 
-        padding();
+        long L = Integer.toUnsignedLong(message_len << 3);
+        message[message_offset++] = (byte) 0x80;
 
-        for (int i = 0; i < message.length / 64; i++) {
-           byte[] block = new byte[64];
-           System.arraycopy(message, i << 6, block, 0, block.length);
+        if(message_offset > 56) {
+            while (message_offset < 64) {
+                message[message_offset++] = 0;
+            }
 
-           process_block(block);
-
-           compress();
+            process_block(message);
+            compress();
+            message_offset = 0;
         }
+
+
+        while (message_offset < 56) {
+            message[message_offset++] = 0;
+        }
+        for (int i = 0; i < 8; i++) {
+            message[56 + i] = (byte) (L >>> (56 - (i << 3)));
+        }
+
+        process_block(message);
+        compress();
 
         byte[] hash = new byte[32];
         for (int i = 0; i < 4; i++) {
@@ -193,8 +185,9 @@ public class SHA2 {
         h5 = h_init[5];
         h6 = h_init[6];
         h7 = h_init[7];
-        message = new byte[0];
+        message = new byte[64];
         message_len = 0;
+        message_offset = 0;
         message_schedule = null;
     }
 }

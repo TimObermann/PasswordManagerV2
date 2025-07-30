@@ -12,34 +12,8 @@ public class MangerFacade {
 
     private static void run_SHA_test(){
         SHA2 sha = new SHA2();
-
-        long start = System.currentTimeMillis();
-
-        sha.insert("".getBytes());
-        System.out.println(bytesToHexString(sha.generate()));
-
-        long end = System.currentTimeMillis();
-        System.out.println(end - start);
-
-        start = System.currentTimeMillis();
-        sha.insert("abc".getBytes());
-        System.out.println(bytesToHexString(sha.generate()));
-        end = System.currentTimeMillis();
-        System.out.println(end - start);
-
-        start = System.currentTimeMillis();
         sha.insert("abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu".getBytes());
         System.out.println(bytesToHexString(sha.generate()));
-        end = System.currentTimeMillis();
-        System.out.println(end - start);
-
-        start = System.currentTimeMillis();
-        for (int i = 0; i < 1000000; i++) {
-            sha.insert("a".getBytes());
-        }
-        System.out.println(bytesToHexString(sha.generate()));
-        end = System.currentTimeMillis();
-        System.out.println(end - start);
     }
 
     private static String bytesToHexString(byte[] bytes) {
