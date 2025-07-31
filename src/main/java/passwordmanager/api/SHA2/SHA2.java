@@ -1,7 +1,5 @@
 package passwordmanager.api.SHA2;
 
-import java.util.Arrays;
-
 public class SHA2 {
 
     private final int[] h_init = {

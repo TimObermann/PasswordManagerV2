@@ -1,7 +1,6 @@
 package passwordmanager.api.AES;
 
-import java.util.Arrays;
-
+import java.security.SecureRandom;
 
 public class AES {
 
@@ -10,8 +9,9 @@ public class AES {
     private final byte Nb;
     private final byte Nk;
     private final byte Nr;
-    private final AES_SIZE size;
-    private final AES_MODE variant;
+    public final AES_SIZE size;
+    public final AES_MODE mode;
+    private final SecureRandom rng = new SecureRandom();
 
 
     private final byte[][] SBox = {
@@ -84,9 +84,10 @@ public class AES {
             {0x4D, 0x00, 0x00, 0x00}
     };
 
-    public AES(AES_SIZE size, AES_MODE variant){
+    public AES(AES_SIZE size, AES_MODE mode){
         this.size = size;
-        this.variant = variant;
+        this.mode = mode;
+
 
         switch (size) {
             case AES_128 -> {
@@ -109,11 +110,11 @@ public class AES {
     }
 
     public AES(AES_SIZE size) {
-        this(size, AES_MODE.ECB);
+        this(size, AES_MODE.CBC);
     }
 
     public AES(){
-        this(AES_SIZE.AES_256, AES_MODE.ECB);
+        this(AES_SIZE.AES_256, AES_MODE.CBC);
     }
 
 
@@ -125,18 +126,18 @@ public class AES {
                 state[i][j] = in[i + (j << 2)];
             }
         }
-        AddRoundKey(state, Arrays.copyOfRange(key_schedule, 0, Nb));
+        AddRoundKey(state, array_copy_of_range(key_schedule, 0, Nb));
 
         for (int round = 1; round < Nr; round++) {
             SubBytes(state);
             ShiftRows(state);
             MixColumns(state);
-            AddRoundKey(state, Arrays.copyOfRange(key_schedule, round * Nb, (round+1) * Nb));
+            AddRoundKey(state, array_copy_of_range(key_schedule, round * Nb, (round+1) * Nb));
         }
 
         SubBytes(state);
         ShiftRows(state);
-        AddRoundKey(state, Arrays.copyOfRange(key_schedule, Nr*Nb, (Nr+1) * Nb));
+        AddRoundKey(state, array_copy_of_range(key_schedule, Nr*Nb, (Nr+1) * Nb));
 
         return state;
     }
@@ -264,10 +265,7 @@ public class AES {
         return (a1 << 24 | a2 << 16 | a3 << 8 | a0);
     }
 
-    public byte[] encrypt(byte[] cleartext, int[] key) {
-
-        if(key.length != Nk) throw new InvalidKeyException();
-
+    private byte[] addPadding(byte[] cleartext) {
         int padding = 16 - (cleartext.length % 16);
 
         byte[] padded_cleartext = new byte[cleartext.length + padding];
@@ -277,13 +275,20 @@ public class AES {
             padded_cleartext[cleartext.length + i] = (byte) padding;
         }
 
-        byte[][] inputs = new byte[padded_cleartext.length / 16][16];
+        return padded_cleartext;
+    }
+
+    public byte[] encrypt(String cleartext, int[] key) {
+        return encrypt(cleartext.getBytes(), key);
+    }
+
+    public byte[] encrypt(byte[] cleartext, int[] key) {
+
+        if(key.length != Nk) throw new InvalidKeyException();
+
         byte[] key_bytes = new byte[Nk * 4];
         byte[] ciphertext;
 
-        for (int i = 0; i < padded_cleartext.length; i++) {
-            inputs[i / 16][i % 16] = padded_cleartext[i];
-        }
 
         for (int i = 0; i < key.length; i++) {
             key_bytes[i << 2] = (byte) ((key[i] >> 24) & 0xFF);
@@ -296,91 +301,119 @@ public class AES {
         //AES start
         int[] expanded_key_schedule = key_expansion(key_bytes);
 
-        if(variant == AES_MODE.ECB){
-            ciphertext = new byte[padded_cleartext.length];
+        return switch (mode) {
 
-            for (int i = 0; i < inputs.length; i++) {
-                byte[][] state = c(inputs[i], expanded_key_schedule);
+            case ECB -> {
 
-                for (int j = 0; j < 4; j++) {
-                    for (int k = 0; k < 4; k++) {
-                        ciphertext[(i << 4) + ((k << 2) + j)] = state[j][k];
+                byte[] padded_cleartext = addPadding(cleartext);
+                byte[][] inputs = new byte[padded_cleartext.length / 16][16];
+                for (int i = 0; i < padded_cleartext.length; i++) {
+                    inputs[i / 16][i % 16] = padded_cleartext[i];
+                }
+
+                ciphertext = new byte[padded_cleartext.length];
+
+                for (int i = 0; i < inputs.length; i++) {
+                    byte[][] state = c(inputs[i], expanded_key_schedule);
+
+                    for (int j = 0; j < 4; j++) {
+                        for (int k = 0; k < 4; k++) {
+                            ciphertext[(i << 4) + ((k << 2) + j)] = state[j][k];
+                        }
                     }
                 }
+
+                yield ciphertext;
             }
-        }
-        else if(variant == AES_MODE.CBC) {
-            byte[] lastBlock = generateIV();
-            ciphertext = new byte[padded_cleartext.length + lastBlock.length];
-            System.arraycopy(lastBlock, 0, ciphertext, 0, lastBlock.length);
 
-            for (int i = 0; i < inputs.length; i++) {
-                byte[][] state = c(bytes_xor(inputs[i], lastBlock), expanded_key_schedule);
+            case CBC -> {
 
-                for (int j = 0; j < 4; j++) {
-                    for (int k = 0; k < 4; k++) {
-                        ciphertext[lastBlock.length + (i << 4) + ((k << 2) + j)] = state[j][k];
-                        lastBlock[(j << 2) + k] = state[j][k];
+                byte[] padded_cleartext = addPadding(cleartext);
+                byte[][] inputs = new byte[padded_cleartext.length / 16][16];
+                for (int i = 0; i < padded_cleartext.length; i++) {
+                    inputs[i / 16][i % 16] = padded_cleartext[i];
+                }
+
+                byte[] lastBlock = rng.generateSeed(16);
+
+                ciphertext = new byte[padded_cleartext.length + lastBlock.length];
+                System.arraycopy(lastBlock, 0, ciphertext, 0, lastBlock.length);
+
+                for (int i = 0; i < inputs.length; i++) {
+                    byte[][] state = c(bytes_xor(inputs[i], lastBlock), expanded_key_schedule);
+
+                    for (int j = 0; j < 4; j++) {
+                        for (int k = 0; k < 4; k++) {
+                            ciphertext[lastBlock.length + (i << 4) + ((k << 2) + j)] = state[j][k];
+                            lastBlock[(k << 2) + j] = state[j][k];
+                        }
                     }
                 }
+
+                yield ciphertext;
             }
-        }
-        else {
-            throw new IllegalStateException("Unimplemented");
-        }
+            case CTR -> {
+                byte[] lastBlock = new byte[16];
+                final byte[] IV = rng.generateSeed(12);
+                int ctr = 0;
 
 
-        return ciphertext;
+                ciphertext = new byte[cleartext.length + IV.length];
+                System.arraycopy(IV, 0, ciphertext, 0, IV.length);
+
+                for (int i = 0; i < cleartext.length; i++) {
+
+                    build_CTR_block(lastBlock, IV, ctr++);
+
+                    byte[][] state = c(lastBlock, expanded_key_schedule);
+
+                    for (int j = 0; j < 4; j++) {
+                        for (int k = 0; k < 4; k++) {
+                            int currIndex = (i << 4) + ((k << 2) + j);
+
+                            if (currIndex < cleartext.length) {
+                                ciphertext[IV.length + currIndex] = (byte) (cleartext[currIndex] ^ state[j][k]);
+                            }
+                        }
+                    }
+
+                }
+
+                yield ciphertext;
+            }
+        };
+
+    }
+
+    private void build_CTR_block(byte[] lastBlock, byte[] IV, int ctr){
+        for (int i = 0; i < 12; i++) {
+            lastBlock[i] = IV[i];
+        }
+        for (int i = 12; i < 16; i++) {
+            lastBlock[i] = (byte) (ctr >> ((3 - (i - 12)) << 3) & 0xFF);
+        }
+    }
+
+    private int[] array_copy_of_range(int[] arr, int from, int to) {
+        int[] o = new int[to - from];
+        System.arraycopy(arr, from, o, 0, to - from);
+        return o;
     }
 
     private byte[] bytes_xor(byte[] p, byte[] c) {
 
         byte[] o = new byte[p.length];
         for (int i = 0; i < p.length; i++) {
-            o[i] = (byte) (p[i] ^ c[i]);
+            o[i] = (byte) (((p[i] & 0xFF) ^ (c[i] & 0xFF)) & 0xFF);
         }
         return o;
     }
-
-
-    private byte[] generateIV(){
-
-        int x =  (int)(System.nanoTime() & 0xFFFF);
-        int l = (int)(Runtime.getRuntime().freeMemory() & 255);
-        for (int i = 0; i < l; i++) {
-            if(i % 2 == 0){
-                x += System.identityHashCode(new Object());
-            }
-            else {
-                x ^= System.identityHashCode(new Object());
-            }
-        }
-        x += (int)(Runtime.getRuntime().maxMemory() & 65535);
-        x += (int)((long)(Thread.getAllStackTraces().keySet().size() + System.nanoTime()) & 16777215);
-
-        byte[] o = new byte[16];
-
-        for (int i = 0; i < 16; i++) {
-            o[i] = (byte)(x & 0xFF);
-            x >>= 8;
-        }
-
-        return o;
-    }
-
-
 
     public byte[] decrypt(byte[] ciphertext, int[] key) {
 
         if(key.length != Nk) throw new InvalidKeyException();
 
-        byte[][] inputs = new byte[ciphertext.length / 16][16];
         byte[] key_bytes = new byte[Nk * 4];
-        byte[] cleartext = new byte[ciphertext.length];
-
-        for (int i = 0; i < ciphertext.length; i++) {
-            inputs[i / 16][i % 16] = ciphertext[i];
-        }
 
         for (int i = 0; i < key.length; i++) {
             key_bytes[i << 2] = (byte) ((key[i] >> 24) & 0xFF);
@@ -389,35 +422,105 @@ public class AES {
             key_bytes[(i << 2) + 3] = (byte) (key[i] & 0xFF);
         }
 
-
         //AES start
         int[] expanded_key_schedule = key_expansion(key_bytes);
 
-        for (int i = 0; i < inputs.length; i++) {
-            byte[][] state = ic(inputs[i], expanded_key_schedule);
 
-            for (int j = 0; j < 4; j++) {
-                for (int k = 0; k < 4; k++) {
-                    cleartext[(i << 4) + ((k << 2) + j)] = state[j][k];
+        return switch (mode) {
+            case ECB -> {
+                byte[][] inputs = new byte[ciphertext.length / 16][16];
+                byte[] cleartext = new byte[ciphertext.length];
+
+                for (int i = 0; i < ciphertext.length; i++) {
+                    inputs[i / 16][i % 16] = ciphertext[i];
                 }
+
+                for (int i = 0; i < inputs.length; i++) {
+                    byte[][] state = ic(inputs[i], expanded_key_schedule);
+
+                    for (int j = 0; j < 4; j++) {
+                        for (int k = 0; k < 4; k++) {
+                            cleartext[(i << 4) + ((k << 2) + j)] = state[j][k];
+                        }
+                    }
+                }
+
+                cleartext = removePadding(cleartext);
+
+                yield  cleartext;
             }
-        }
 
-        cleartext = removePadding(cleartext);
+            case CBC -> {
+                byte[][] inputs = new byte[ciphertext.length / 16][16];
+                byte[] lastBlock = new byte[16];
+                byte[] cleartext = new byte[ciphertext.length - 16];
 
+                for (int i = 0; i < ciphertext.length; i++) {
+                    inputs[i / 16][i % 16] = ciphertext[i];
+                }
 
-        return cleartext;
+                System.arraycopy(ciphertext, 0, lastBlock, 0, lastBlock.length);
+
+                for (int i = 1; i < inputs.length; i++) {
+                    byte[][] state = ic(inputs[i], expanded_key_schedule);
+                    byte[] flattened_state = new byte[16];
+
+                    for (int j = 0; j < 4; j++) {
+                        for (int k = 0; k < 4; k++) {
+                            flattened_state[((k << 2) + j)] = state[j][k];
+                        }
+                    }
+
+                    byte[] final_state = bytes_xor(flattened_state, lastBlock);
+                    lastBlock = inputs[i];
+
+                    System.arraycopy(final_state, 0, cleartext, (i - 1) << 4, 16);
+                }
+
+                yield removePadding(cleartext);
+            }
+
+            case CTR -> {
+
+                byte[] lastBlock = new byte[16];
+                final byte[] IV = new byte[12];
+                System.arraycopy(ciphertext, 0, IV, 0, 12);
+                int ctr = 0;
+
+                byte[] cleartext = new byte[ciphertext.length - 12];
+
+                for (int i = 0; i < cleartext.length; i++) {
+
+                    build_CTR_block(lastBlock, IV, ctr++);
+
+                    byte[][] state = c(lastBlock, expanded_key_schedule);
+
+                    for (int j = 0; j < 4; j++) {
+                        for (int k = 0; k < 4; k++) {
+                            int currIndex = 12 +  (i << 4) + ((k << 2) + j);
+
+                            if (currIndex < ciphertext.length) {
+                                cleartext[(i << 4) + ((k << 2) + j)] = (byte) (ciphertext[currIndex] ^ state[j][k]);
+                            }
+                        }
+                    }
+
+                }
+
+                yield cleartext;
+            }
+        };
     }
 
     private byte[] removePadding(byte[] cleartext) {
-        byte padding = cleartext[cleartext.length - 1];
+        byte padding = (byte) (cleartext[cleartext.length - 1] & 0xFF);
 
         if(padding < 0 || padding > 16) {
             throw new IllegalStateException();
         }
 
-        for (int i = cleartext.length - padding; i < cleartext.length - 1 ; i++) {
-            if(cleartext[i] != padding) throw new IllegalStateException();
+        for (int i = cleartext.length - padding; i < cleartext.length; i++) {
+            if(cleartext[i] != padding) throw new IllegalStateException("was: " + cleartext[i] + " at {" + i + "} instead of: " + padding);
         }
 
         byte[] sans_padding = new byte[cleartext.length - padding];
@@ -435,18 +538,18 @@ public class AES {
             }
         }
 
-        AddRoundKey(state, Arrays.copyOfRange(key_schedule, Nb*Nr, (Nr+1) * Nb));
+        AddRoundKey(state, array_copy_of_range(key_schedule, Nb*Nr, (Nr+1) * Nb));
 
         for(int round = Nr - 1; round >= 1; round--) {
             InvShiftRows(state);
             InvSubBytes(state);
-            AddRoundKey(state, Arrays.copyOfRange(key_schedule, round*Nb, (round+1) * Nb));
+            AddRoundKey(state, array_copy_of_range(key_schedule, round*Nb, (round+1) * Nb));
             InvMixColumns(state);
         }
 
         InvShiftRows(state);
         InvSubBytes(state);
-        AddRoundKey(state, Arrays.copyOfRange(key_schedule, 0, Nb));
+        AddRoundKey(state, array_copy_of_range(key_schedule, 0, Nb));
 
         return state;
     }

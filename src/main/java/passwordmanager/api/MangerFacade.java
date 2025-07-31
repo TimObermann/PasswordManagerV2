@@ -3,11 +3,13 @@ package passwordmanager.api;
 
 import passwordmanager.api.AES.*;
 import passwordmanager.api.SHA2.SHA2;
+
+import java.security.SecureRandom;
 import java.util.Arrays;
 
 public class MangerFacade {
     public static void main(String[] args) {
-        run_SHA_test();
+        run_AES_Test();
     }
 
     private static void run_SHA_test(){
@@ -29,7 +31,10 @@ public class MangerFacade {
 
 
     private static void run_AES_Test(){
-        AES crypt = new AES(AES_SIZE.AES_256);
+        SecureRandom r = new SecureRandom();
+        AES crypt = new AES(AES_SIZE.AES_256, AES_MODE.CTR);
+
+
 
         int[] key = new int[]{
                 0x00010203,
@@ -49,16 +54,16 @@ public class MangerFacade {
                 (byte) 0xcc, (byte) 0xdd, (byte) 0xee, (byte) 0xff
         };
 
-        String str_cleartext = "Hello My Darling AES";
+        String str_cleartext = "Hello my darling AES! <3. It's so wonderful to see you working as intended!";
+        String str_cleartext_two = "It even works if I encrypt multiple times in a row!";
 
-        byte[] ciphertext = crypt.encrypt(plaintext, key);
+        byte[] ciphertext = crypt.encrypt(str_cleartext, key);
+        byte[] ciphertext_two = crypt.encrypt(str_cleartext_two, key);
+
         byte[] decrypted = crypt.decrypt(ciphertext, key);
 
-        for (byte b : ciphertext) {
-            System.out.printf("%02x", b & 0xFF);
-        }
-
-        System.out.println(Arrays.toString(decrypted));
+        System.out.println(new String(decrypted));
+        System.out.println(new String(crypt.decrypt(ciphertext_two, key)));
 
     }
 }
