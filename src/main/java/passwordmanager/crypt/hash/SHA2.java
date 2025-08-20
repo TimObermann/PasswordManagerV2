@@ -1,4 +1,4 @@
-package passwordmanager.api.SHA2;
+package passwordmanager.crypt.hash;
 
 public class SHA2 {
 
@@ -131,7 +131,17 @@ public class SHA2 {
         return word >>> n | ((word & ((1 << n) - 1)) << (32 - n));
     }
 
+    public byte[] generate_without_reset() {
+        return finish();
+    }
+
     public byte[] generate() {
+        byte[] o = finish();
+        reset();
+        return o;
+    }
+
+    private byte[] finish() {
 
         long L = Integer.toUnsignedLong(message_len << 3);
         message[message_offset++] = (byte) 0x80;
@@ -169,8 +179,6 @@ public class SHA2 {
             hash[28 + i] = (byte) ((h7 >> (24 - (i << 3))) & 0xFF);
         }
 
-        reset();
-
         return hash;
     }
 
@@ -187,5 +195,15 @@ public class SHA2 {
         message_len = 0;
         message_offset = 0;
         message_schedule = null;
+    }
+
+    public static byte[] hash(byte[] input) {
+        SHA2 s = new SHA2();
+
+        s.insert(input);
+        byte[] out = s.generate();
+        s.reset();
+
+        return out;
     }
 }

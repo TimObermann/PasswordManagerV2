@@ -1,4 +1,4 @@
-package passwordmanager.api.AES;
+package passwordmanager.crypt.aes;
 
 public class InvalidKeyException extends RuntimeException {
     public InvalidKeyException() {

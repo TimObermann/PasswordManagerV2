@@ -1,4 +1,4 @@
-package passwordmanager.api.AES;
+package passwordmanager.crypt.aes;
 
 import java.security.SecureRandom;
 
@@ -6,14 +6,30 @@ public class AES {
 
     //https://tsapps.nist.gov/publication/get_pdf.cfm?pub_id=901427
 
+    //AES constants
+    //Nb, amount of columns in state
+    //Nk, number of words in key
+    //Nr, number of rounds
     private final byte Nb;
     private final byte Nk;
     private final byte Nr;
+
+    //Available key sizes are 128, 192, 256
+    //Modes are
+    // -ECM (NEVER USE THIS)
+    // -CBC (with a random nonce)
+    // -CTR
     public final AES_SIZE size;
     public final AES_MODE mode;
+
+    //used to create random nonce
     private final SecureRandom rng = new SecureRandom();
 
 
+
+    //lookup-tables for the cipher.
+    //In an environment where absolute security is a must,
+    //this could be exploited with a timing attack
     private final byte[][] SBox = {
             {(byte)0x63, (byte)0x7c, (byte)0x77, (byte)0x7b, (byte)0xf2, (byte)0x6b, (byte)0x6f, (byte)0xc5, (byte)0x30, (byte)0x01, (byte)0x67, (byte)0x2b, (byte)0xfe, (byte)0xd7, (byte)0xab, (byte)0x76},
             {(byte)0xca, (byte)0x82, (byte)0xc9, (byte)0x7d, (byte)0xfa, (byte)0x59, (byte)0x47, (byte)0xf0, (byte)0xad, (byte)0xd4, (byte)0xa2, (byte)0xaf, (byte)0x9c, (byte)0xa4, (byte)0x72, (byte)0xc0},
@@ -53,6 +69,7 @@ public class AES {
     };
 
 
+    //these are matrices
     private final byte[][] a = {
             {0x02, 0x03, 0x01, 0x01},
             {0x01, 0x02, 0x03, 0x01},
@@ -67,28 +84,32 @@ public class AES {
             {(byte)0x0b, (byte)0x0d, (byte)0x09, (byte)0x0e}
     };
 
-    private final int[][] Rcon = {
-            {0x01, 0x00, 0x00, 0x00},
-            {0x02, 0x00, 0x00, 0x00},
-            {0x04, 0x00, 0x00, 0x00},
-            {0x08, 0x00, 0x00, 0x00},
-            {0x10, 0x00, 0x00, 0x00},
-            {0x20, 0x00, 0x00, 0x00},
-            {0x40, 0x00, 0x00, 0x00},
-            {0x80, 0x00, 0x00, 0x00},
-            {0x1B, 0x00, 0x00, 0x00},
-            {0x36, 0x00, 0x00, 0x00},
-            {0x6C, 0x00, 0x00, 0x00},
-            {0xD8, 0x00, 0x00, 0x00},
-            {0xAB, 0x00, 0x00, 0x00},
-            {0x4D, 0x00, 0x00, 0x00}
+    //Set of values used in key expansion
+    //they're always doubled within GF(2^8)
+    private final int[] Rcon = {
+            0x01,
+            0x02,
+            0x04,
+            0x08,
+            0x10,
+            0x20,
+            0x40,
+            0x80,
+            0x1B,
+            0x36,
+            0x6C,
+            0xD8,
+            0xAB,
+            0x4D
     };
+
+
 
     public AES(AES_SIZE size, AES_MODE mode){
         this.size = size;
         this.mode = mode;
 
-
+        //set the constants for each key size
         switch (size) {
             case AES_128 -> {
                 this.Nk = 4;
@@ -105,7 +126,7 @@ public class AES {
                 this.Nb = 4;
                 this.Nr = 14;
             }
-            default -> throw new IllegalStateException("Fuck the language server");
+            default -> throw new IllegalStateException("How did you do that?!");
         }
     }
 
@@ -117,8 +138,12 @@ public class AES {
         this(AES_SIZE.AES_256, AES_MODE.CBC);
     }
 
-
+    //this is the actual AES encryption method
+    //takes a 16 byte block and the expanded key schedule
+    //and returns the state after the AES algorithm was applied to the input
     private byte[][] c(byte[] in, int[] key_schedule){
+
+        //build the state
         byte[][] state = new byte[4][Nb];
 
         for (int i = 0; i < 4; i++) {
@@ -126,6 +151,8 @@ public class AES {
                 state[i][j] = in[i + (j << 2)];
             }
         }
+
+        //start the encryption
         AddRoundKey(state, array_copy_of_range(key_schedule, 0, Nb));
 
         for (int round = 1; round < Nr; round++) {
@@ -142,6 +169,8 @@ public class AES {
         return state;
     }
 
+    //this method adds a part of the expanded key column wise to the state
+    //Note addition is performed through the xor operation within the galois finite field
     private void AddRoundKey(byte[][] state, int[] key_schedule){
         for (int i = 0; i < 4; i++) {
             state[3][i] = (byte) (state[3][i] ^ (key_schedule[i] & 0xFF));
@@ -151,6 +180,8 @@ public class AES {
         }
     }
 
+    //substitutes each byte within the state through the SBox lookup table
+    //the byte 0x53 will be substituted with the byte at row = 3, column = 5 in the SBox
     private void SubBytes(byte[][] state) {
         for (int i = 0; i < 4; i++) {
             for (int j = 0; j < 4; j++) {
@@ -159,6 +190,15 @@ public class AES {
         }
     }
 
+    //this shifts the rows of the state by their index
+    //so row 0 is shifted by 0, row 1 shifted by 1 etc.
+    //the shift is left.
+    /*
+        0 1 2 3      0 1 2 3
+        0 1 2 3  ->  1 2 3 0
+        0 1 2 3      2 3 0 1
+        0 1 2 3      3 0 1 2
+     */
     private void ShiftRows(byte[][] state) {
 
         byte[][] tmp = new byte[4][4];
@@ -175,6 +215,9 @@ public class AES {
         }
     }
 
+
+    //multiplication within the galois finite field
+    //this uses a variation of the russian peasants algorithm
     private byte gmul(byte a, byte b){
         byte p = 0;
 
@@ -195,6 +238,7 @@ public class AES {
         return p;
     }
 
+    //a helper for the matrix multiplication in MixColumns
     private byte rowTimesCol(byte[] row, byte[] col){
         byte o = 0;
 
@@ -205,6 +249,8 @@ public class AES {
         return o;
     }
 
+    // we perform a matrix multiplication with a
+    // c' = a * c
     private void MixColumns(byte[][] state) {
         byte[][] tmp = new byte[4][4];
 
@@ -224,19 +270,25 @@ public class AES {
         }
     }
 
+    //this is the key expansion it enhances the quality of the key
+    //and transforms it suit the needs of the algorithm
     private int[] key_expansion(byte[] key){
         int tmp;
 
         int[] w = new int[Nb * (Nr + 1)];
 
+        //the key is concatenated into the first Nk words of w
         for (int i = 0; i < Nk; i++) {
             w[i] = (key[(i << 2) + 3] & 0xFF) | ((key[(i << 2) + 2] & 0xFF) << 8) | ((key[(i << 2) + 1] & 0xFF) << 16) | ((key[(i << 2)] & 0xFF) << 24);
         }
 
+        //the rest of the words in the expanded key schedul w
+        //are calculated based on the first Nk words
         for (int i = Nk; i < (Nb * (Nr + 1)); i++) {
             tmp = w[i - 1];
+
             if(i % Nk == 0){
-                tmp = SubWord(RotWord(tmp)) ^ (Rcon[(i / Nk) - 1][0] << 24);
+                tmp = SubWord(RotWord(tmp)) ^ (Rcon[(i / Nk) - 1] << 24);
             }
             else if(Nk > 6 && (i % Nk == 4)) {
                 tmp = SubWord(tmp);
@@ -248,6 +300,7 @@ public class AES {
         return w;
     }
 
+    //this substitues the 4 bytes a the word with corresponding bytes from the SBox
     private int SubWord(int word) {
         int b0 = SBox[((word >> 24) & 0xFF) >> 4][(word >> 24) & 0xF] & 0xFF;
         int b1 = SBox[((word >> 16) & 0xFF) >> 4][(word >> 16) & 0xF] & 0xFF;
@@ -256,6 +309,7 @@ public class AES {
         return (b0 << 24) | (b1 << 16) | (b2 << 8) | b3;
     }
 
+    //this rotates the word one byte to the left
     private int RotWord(int word) {
         int a0 = (word >>> 24) & 0xFF;
         int a1 = (word >>> 16) & 0xFF;
@@ -265,6 +319,9 @@ public class AES {
         return (a1 << 24 | a2 << 16 | a3 << 8 | a0);
     }
 
+    //this method adds padding to the very last block,
+    //so that it has a length of 16bytes and can be processed by c()
+    //it uses the PKCS#7 scheme
     private byte[] addPadding(byte[] cleartext) {
         int padding = 16 - (cleartext.length % 16);
 
@@ -278,33 +335,46 @@ public class AES {
         return padded_cleartext;
     }
 
+    /**
+     * This method encrypts a String
+     * @param cleartext the text to be encrypted
+     * @param key the key used for encryption needs to be 8 ints for AES_256, 6 ints for AES_192, and 4 ints for AES_128
+     * @return the encrypted string represented by a byte[]
+     */
     public byte[] encrypt(String cleartext, int[] key) {
         return encrypt(cleartext.getBytes(), key);
     }
 
+    /**
+     * This method encrypts a byte[]
+     * @param cleartext the values to be encrypted
+     * @param key the key used for encryption needs to be 8 ints for AES_256, 6 ints for AES_192, and 4 ints for AES_128
+     * @return the encrypted byte[]
+     */
     public byte[] encrypt(byte[] cleartext, int[] key) {
 
         if(key.length != Nk) throw new InvalidKeyException();
 
+
+        //the key expansion is performed
         byte[] key_bytes = new byte[Nk * 4];
-        byte[] ciphertext;
-
-
         for (int i = 0; i < key.length; i++) {
             key_bytes[i << 2] = (byte) ((key[i] >> 24) & 0xFF);
             key_bytes[(i << 2) + 1] = (byte) ((key[i] >> 16) & 0xFF);
             key_bytes[(i << 2) + 2] = (byte) ((key[i] >> 8) & 0xFF);
             key_bytes[(i << 2) + 3] = (byte) (key[i] & 0xFF);
         }
-
-
-        //AES start
         int[] expanded_key_schedule = key_expansion(key_bytes);
 
+        byte[] ciphertext;
         return switch (mode) {
 
+            //Electronic cookbook mode (ECB) is VERY unsafe
+            //since it always uses the same key for all blocks
+            //therefore two identical cleartext blocks will produce IDENTICAL ciphertext blocks!!!
             case ECB -> {
 
+                //add padding and fill the padded cleartext into a 2D array
                 byte[] padded_cleartext = addPadding(cleartext);
                 byte[][] inputs = new byte[padded_cleartext.length / 16][16];
                 for (int i = 0; i < padded_cleartext.length; i++) {
@@ -313,9 +383,13 @@ public class AES {
 
                 ciphertext = new byte[padded_cleartext.length];
 
+
                 for (int i = 0; i < inputs.length; i++) {
+
+                    //encrypt every cleartext block
                     byte[][] state = c(inputs[i], expanded_key_schedule);
 
+                    //flatten and concatenate the 2D state array into the ciphertext
                     for (int j = 0; j < 4; j++) {
                         for (int k = 0; k < 4; k++) {
                             ciphertext[(i << 4) + ((k << 2) + j)] = state[j][k];
@@ -326,22 +400,33 @@ public class AES {
                 yield ciphertext;
             }
 
+            //Cipher Block Chaining mode is the default mode within this implementation
+            //it xors the previous ciphertext block and the current cleartext block together
+            //before passing the result into the encryption method.
+            //this creates a dependency on the previous block
             case CBC -> {
 
+                //add padding and fill the padded cleartext into a 2D array
                 byte[] padded_cleartext = addPadding(cleartext);
                 byte[][] inputs = new byte[padded_cleartext.length / 16][16];
                 for (int i = 0; i < padded_cleartext.length; i++) {
                     inputs[i / 16][i % 16] = padded_cleartext[i];
                 }
 
+                //we introduce a 16 byte nonce as our initial block
                 byte[] lastBlock = rng.generateSeed(16);
 
+                //this nonce is prepended onto the ciphertext since it has to be known for the decryption
                 ciphertext = new byte[padded_cleartext.length + lastBlock.length];
                 System.arraycopy(lastBlock, 0, ciphertext, 0, lastBlock.length);
 
+
                 for (int i = 0; i < inputs.length; i++) {
+
+                    //xor the current cleartext block and the last ciphertext block
                     byte[][] state = c(bytes_xor(inputs[i], lastBlock), expanded_key_schedule);
 
+                    //flatten the 2D state into ciphertext and the lastBlock
                     for (int j = 0; j < 4; j++) {
                         for (int k = 0; k < 4; k++) {
                             ciphertext[lastBlock.length + (i << 4) + ((k << 2) + j)] = state[j][k];
@@ -352,21 +437,30 @@ public class AES {
 
                 yield ciphertext;
             }
+
+            //with Counter mode, rather than encrypting the plaintext with the c() function
+            //we instead create a keystream with our encryption function,
+            //each byte from the keystream is xored with the plaintext to create the ciphertext
             case CTR -> {
-                byte[] lastBlock = new byte[16];
+
+                //just like with CBC we need an IV, this one is only 12 byte large,
+                //as we append the 4 byte counter for every block
                 final byte[] IV = rng.generateSeed(12);
                 int ctr = 0;
 
-
+                //the IV needs to be prepended onto the ciphertext for decryption
                 ciphertext = new byte[cleartext.length + IV.length];
                 System.arraycopy(IV, 0, ciphertext, 0, IV.length);
 
+                byte[] block;
                 for (int i = 0; i < cleartext.length; i++) {
 
-                    build_CTR_block(lastBlock, IV, ctr++);
+                    //create every block by concatenating the IV and the incremented counter
+                    block = build_CTR_block(IV, ctr++);
 
-                    byte[][] state = c(lastBlock, expanded_key_schedule);
+                    byte[][] state = c(block, expanded_key_schedule);
 
+                    //flatten the state into a 1D bytestream and xor the plaintext to create the ciphertext
                     for (int j = 0; j < 4; j++) {
                         for (int k = 0; k < 4; k++) {
                             int currIndex = (i << 4) + ((k << 2) + j);
@@ -379,27 +473,40 @@ public class AES {
 
                 }
 
+                //no need for padding as the plaintext is never passed into c()
                 yield ciphertext;
             }
         };
 
     }
 
-    private void build_CTR_block(byte[] lastBlock, byte[] IV, int ctr){
+
+    //concatenate the IV and ctr to a 16 byte block
+    private byte[] build_CTR_block(byte[] IV, int ctr){
+        byte[] block = new byte[16];
+
         for (int i = 0; i < 12; i++) {
-            lastBlock[i] = IV[i];
+            block[i] = IV[i];
         }
         for (int i = 12; i < 16; i++) {
-            lastBlock[i] = (byte) (ctr >> ((3 - (i - 12)) << 3) & 0xFF);
+            block[i] = (byte) (ctr >> ((3 - (i - 12)) << 3) & 0xFF);
         }
+
+        return block;
     }
 
+
+    //same as Arrays.copyOfRange()
+    //from is inclusive
+    //to is exclusive
     private int[] array_copy_of_range(int[] arr, int from, int to) {
         int[] o = new int[to - from];
         System.arraycopy(arr, from, o, 0, to - from);
         return o;
     }
 
+
+    //xor two arrays of bytes
     private byte[] bytes_xor(byte[] p, byte[] c) {
 
         byte[] o = new byte[p.length];
@@ -409,12 +516,20 @@ public class AES {
         return o;
     }
 
+
+    /**
+     * The decryption function
+     * @param ciphertext encrypted ciphertext
+     * @param key the key, 8 ints for AES_256, 6 ints for AES_192, 4 ints for AES_128
+     * @return the decrypted plaintext
+     */
     public byte[] decrypt(byte[] ciphertext, int[] key) {
 
         if(key.length != Nk) throw new InvalidKeyException();
 
-        byte[] key_bytes = new byte[Nk * 4];
 
+        // key expansion
+        byte[] key_bytes = new byte[Nk * 4];
         for (int i = 0; i < key.length; i++) {
             key_bytes[i << 2] = (byte) ((key[i] >> 24) & 0xFF);
             key_bytes[(i << 2) + 1] = (byte) ((key[i] >> 16) & 0xFF);
@@ -422,11 +537,12 @@ public class AES {
             key_bytes[(i << 2) + 3] = (byte) (key[i] & 0xFF);
         }
 
-        //AES start
         int[] expanded_key_schedule = key_expansion(key_bytes);
 
 
         return switch (mode) {
+
+            //same logic as the encryption. Again DO NOT USE THIS!
             case ECB -> {
                 byte[][] inputs = new byte[ciphertext.length / 16][16];
                 byte[] cleartext = new byte[ciphertext.length];
@@ -436,6 +552,8 @@ public class AES {
                 }
 
                 for (int i = 0; i < inputs.length; i++) {
+
+                    // ic() is the inverse c function
                     byte[][] state = ic(inputs[i], expanded_key_schedule);
 
                     for (int j = 0; j < 4; j++) {
@@ -445,11 +563,13 @@ public class AES {
                     }
                 }
 
+                //naturally the padding is removed
                 cleartext = removePadding(cleartext);
 
                 yield  cleartext;
             }
 
+            //the decryption is very similar to the encryption
             case CBC -> {
                 byte[][] inputs = new byte[ciphertext.length / 16][16];
                 byte[] lastBlock = new byte[16];
@@ -459,9 +579,12 @@ public class AES {
                     inputs[i / 16][i % 16] = ciphertext[i];
                 }
 
+                //fetch the IV
                 System.arraycopy(ciphertext, 0, lastBlock, 0, lastBlock.length);
 
                 for (int i = 1; i < inputs.length; i++) {
+
+                    //the decryption function is applied BEFORE the xor
                     byte[][] state = ic(inputs[i], expanded_key_schedule);
                     byte[] flattened_state = new byte[16];
 
@@ -471,29 +594,32 @@ public class AES {
                         }
                     }
 
+                    //the decrypted block is xored with the prior encrypted block
                     byte[] final_state = bytes_xor(flattened_state, lastBlock);
                     lastBlock = inputs[i];
-
                     System.arraycopy(final_state, 0, cleartext, (i - 1) << 4, 16);
                 }
 
                 yield removePadding(cleartext);
             }
 
+            //here the decryption is exactly the same as the encryption, as xor is its own inverse.
             case CTR -> {
 
-                byte[] lastBlock = new byte[16];
+                //the IV is read and stored
                 final byte[] IV = new byte[12];
                 System.arraycopy(ciphertext, 0, IV, 0, 12);
                 int ctr = 0;
 
+                //same size as the ciphertext - the length of the IV, as there is no padding
                 byte[] cleartext = new byte[ciphertext.length - 12];
 
+                byte[] block;
                 for (int i = 0; i < cleartext.length; i++) {
 
-                    build_CTR_block(lastBlock, IV, ctr++);
+                    block = build_CTR_block(IV, ctr++);
 
-                    byte[][] state = c(lastBlock, expanded_key_schedule);
+                    byte[][] state = c(block, expanded_key_schedule);
 
                     for (int j = 0; j < 4; j++) {
                         for (int k = 0; k < 4; k++) {
