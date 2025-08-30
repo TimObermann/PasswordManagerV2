@@ -1,7 +1,11 @@
 {
-  "last-instance" : "",
+  "last-instance": "",
   "master-hash": "master-hash",
   "titles": [
-
+    {
+      "website_name": "name",
+      "file_name": "hash",
+      "integrity_hash": "hash"
+    }
   ]
 }

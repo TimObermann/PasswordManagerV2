@@ -1,4 +1,4 @@
-package passwordmanager.crypt.aes;
+package passwordmanager.crypt.cipher.aes;
 
 import java.security.SecureRandom;
 
@@ -105,7 +105,7 @@ public class AES {
 
 
 
-    public AES(AES_SIZE size, AES_MODE mode){
+    public AES(passwordmanager.crypt.cipher.aes.AES_SIZE size, passwordmanager.crypt.cipher.aes.AES_MODE mode){
         this.size = size;
         this.mode = mode;
 
@@ -130,12 +130,12 @@ public class AES {
         }
     }
 
-    public AES(AES_SIZE size) {
-        this(size, AES_MODE.CBC);
+    public AES(passwordmanager.crypt.cipher.aes.AES_SIZE size) {
+        this(size, passwordmanager.crypt.cipher.aes.AES_MODE.CBC);
     }
 
     public AES(){
-        this(AES_SIZE.AES_256, AES_MODE.CBC);
+        this(passwordmanager.crypt.cipher.aes.AES_SIZE.AES_256, passwordmanager.crypt.cipher.aes.AES_MODE.CBC);
     }
 
     //this is the actual AES encryption method
@@ -372,7 +372,7 @@ public class AES {
             //Electronic cookbook mode (ECB) is VERY unsafe
             //since it always uses the same key for all blocks
             //therefore two identical cleartext blocks will produce IDENTICAL ciphertext blocks!!!
-            case ECB -> {
+            case passwordmanager.crypt.cipher.aes.AES_MODE.ECB -> {
 
                 //add padding and fill the padded cleartext into a 2D array
                 byte[] padded_cleartext = addPadding(cleartext);
@@ -404,7 +404,7 @@ public class AES {
             //it xors the previous ciphertext block and the current cleartext block together
             //before passing the result into the encryption method.
             //this creates a dependency on the previous block
-            case CBC -> {
+            case passwordmanager.crypt.cipher.aes.AES_MODE.CBC -> {
 
                 //add padding and fill the padded cleartext into a 2D array
                 byte[] padded_cleartext = addPadding(cleartext);
@@ -441,7 +441,7 @@ public class AES {
             //with Counter mode, rather than encrypting the plaintext with the c() function
             //we instead create a keystream with our encryption function,
             //each byte from the keystream is xored with the plaintext to create the ciphertext
-            case CTR -> {
+            case passwordmanager.crypt.cipher.aes.AES_MODE.CTR -> {
 
                 //just like with CBC we need an IV, this one is only 12 byte large,
                 //as we append the 4 byte counter for every block
@@ -525,7 +525,7 @@ public class AES {
      */
     public byte[] decrypt(byte[] ciphertext, int[] key) {
 
-        if(key.length != Nk) throw new InvalidKeyException();
+        if(key.length != Nk) throw new passwordmanager.crypt.cipher.aes.InvalidKeyException();
 
 
         // key expansion
@@ -543,7 +543,7 @@ public class AES {
         return switch (mode) {
 
             //same logic as the encryption. Again DO NOT USE THIS!
-            case ECB -> {
+            case passwordmanager.crypt.cipher.aes.AES_MODE.ECB -> {
                 byte[][] inputs = new byte[ciphertext.length / 16][16];
                 byte[] cleartext = new byte[ciphertext.length];
 
@@ -570,7 +570,7 @@ public class AES {
             }
 
             //the decryption is very similar to the encryption
-            case CBC -> {
+            case passwordmanager.crypt.cipher.aes.AES_MODE.CBC -> {
                 byte[][] inputs = new byte[ciphertext.length / 16][16];
                 byte[] lastBlock = new byte[16];
                 byte[] cleartext = new byte[ciphertext.length - 16];
@@ -604,7 +604,7 @@ public class AES {
             }
 
             //here the decryption is exactly the same as the encryption, as xor is its own inverse.
-            case CTR -> {
+            case passwordmanager.crypt.cipher.aes.AES_MODE.CTR -> {
 
                 //the IV is read and stored
                 final byte[] IV = new byte[12];

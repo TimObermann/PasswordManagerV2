@@ -1,8 +1,8 @@
 package passwordmanager.gui;
 
-import passwordmanager.crypt.aes.AES;
-import passwordmanager.crypt.aes.AES_MODE;
-import passwordmanager.crypt.aes.AES_SIZE;
+import passwordmanager.crypt.cipher.aes.AES;
+import passwordmanager.crypt.cipher.aes.AES_MODE;
+import passwordmanager.crypt.cipher.aes.AES_SIZE;
 
 public class EntryFactory {
     private AES crypt;
@@ -12,6 +12,6 @@ public class EntryFactory {
     }
 
     public Entry createEntry(String website, String username, byte[] password, int[] key) {
-        return new Entry(crypt.encrypt(website, key), crypt.encrypt(username, key), crypt.encrypt(password, key));
+        return new Entry(website, crypt.encrypt(username, key), crypt.encrypt(password, key));
     }
 }

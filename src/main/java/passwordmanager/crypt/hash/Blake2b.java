@@ -25,11 +25,55 @@ public class Blake2b {
     private final int R3 = 16;
     private final int R4 = 63;
 
+    private int result_len;
+    private long[] internal_state_h;
+    private byte[] buffer;
+    private long[] long_buffer;
+    private int buffer_len;
+    private long t0;
+    private long t1;
+    private boolean lazy_key_processed;
+    private byte[] key;
+
+    public Blake2b(){
+        init(null, 64);
+    }
+
+    public Blake2b(int nn) {
+        init(null, nn);
+    }
+
+    public Blake2b(byte[] key){
+        init(key, 64);
+    }
+
+    public Blake2b(byte[] key, int nn) {
+        init(key, nn);
+    }
+
+    public void init(byte[] key, int nn) {
+        internal_state_h = new long[8];
+        System.arraycopy(iv, 0, internal_state_h, 0, iv.length);
+
+        byte kk = (byte) (key == null ? 0 : key.length);
+        internal_state_h[0] ^= 0x01010000 ^ (kk << 8) ^ nn;
+
+        buffer = new byte[128];
+        long_buffer = new long[16];
+        buffer_len = 0;
+        t0 = 0;
+        t1 = 0;
+        result_len = nn;
+        this.key = key;
+        if(key == null) lazy_key_processed = true;
+        else lazy_key_processed = false;
+    }
+
     private long rightrotate(long word, int n) {
         return word >>> n | ((word & ((1L << n) - 1)) << (64 - n));
     }
 
-    private byte[] to_bytes(long[] h, byte nn) {
+    private byte[] to_bytes(long[] h, int nn) {
         byte[] o = new byte[nn];
         byte long_index = 0;
         byte byte_index = 0;
@@ -101,7 +145,152 @@ public class Blake2b {
         }
     }
 
-    public byte[] blake2b(long[][] d, long ll, byte kk, byte nn) {
+    public void insert(byte[] message) {
+
+        if(!lazy_key_processed && message.length != 0) {
+            byte[] tmp = new byte[128];
+            System.arraycopy(key, 0, tmp, 0, key.length);
+
+            inPlaceBytesToLongs(tmp, long_buffer);
+            t0 = 128;
+            F(internal_state_h, long_buffer, t0, t1, false);
+
+            lazy_key_processed = true;
+        }
+
+        int offset = 0;
+        int message_len = message.length;
+
+
+        if(buffer_len > 0) {
+
+            int remaining_bytes = 128 - buffer_len;
+
+            if(message_len < remaining_bytes) {
+                System.arraycopy(message, 0, buffer, buffer_len, message_len);
+                buffer_len += message_len;
+                return;
+            }
+
+            System.arraycopy(message, 0, buffer, buffer_len, remaining_bytes);
+
+            t0 += 128;
+            if(t0 == 0) {
+                t1 += 1;
+            }
+
+            inPlaceBytesToLongs(buffer, long_buffer);
+
+            F(internal_state_h, long_buffer, t0, t1, false);
+
+            offset += remaining_bytes;
+            message_len -= remaining_bytes;
+            buffer_len = 0;
+        }
+
+        while (message_len > 128) {
+            t0 += 128;
+            if(t0 == 0) t1 += 1;
+
+            System.arraycopy(message, offset, buffer, buffer_len, 128);
+            inPlaceBytesToLongs(buffer, long_buffer);
+
+            F(internal_state_h, long_buffer, t0, t1, false);
+
+            offset += 128;
+            message_len -= 128;
+        }
+
+        if(message_len > 0) {
+            buffer_len = message_len;
+            System.arraycopy(message, offset, buffer, 0, message_len);
+        }
+    }
+
+    public void reset() {
+        t0 = 0;
+        t1 = 0;
+        buffer = new byte[128];
+        buffer_len = 0;
+        long_buffer = new long[16];
+        System.arraycopy(iv, 0, internal_state_h, 0, iv.length);
+        lazy_key_processed = false;
+        key = new byte[0];
+        result_len = 64;
+    }
+
+    public byte[] generate() {
+
+        if(!lazy_key_processed) {
+            byte[] tmp = new byte[128];
+            System.arraycopy(key, 0, tmp, 0, key.length);
+            inPlaceBytesToLongs(tmp, long_buffer);
+            t0 = 128;
+            F(internal_state_h, long_buffer, t0, t1, true);
+
+            lazy_key_processed = true;
+
+            byte[] out = to_bytes(internal_state_h, result_len);
+
+            reset();
+
+            return out;
+        }
+
+
+        t0 += buffer_len;
+
+        for (int i = buffer_len; i < 128; i++) {
+            buffer[i] = 0;
+        }
+
+        inPlaceBytesToLongs(buffer, long_buffer);
+
+        F(internal_state_h, long_buffer, t0, t1, true);
+
+        byte[] out = to_bytes(internal_state_h, result_len);
+
+        reset();
+
+        return out;
+    }
+
+    public byte[] generate_without_reset(int nn) {
+        if(!lazy_key_processed) {
+            if(key != null) {
+                System.arraycopy(key, 0, buffer, 0, key.length);
+                inPlaceBytesToLongs(buffer, long_buffer);
+                t0 += 128;
+                F(internal_state_h, long_buffer, t0, t1, false);
+            }
+
+            lazy_key_processed = true;
+        }
+
+        long local_t0 = t0 + buffer_len;
+        long[] local_h = new long[8];
+        byte[] local_buff = new byte[128];
+        long[] local_long_buff = new long[16];
+
+        System.arraycopy(internal_state_h, 0, local_h, 0, internal_state_h.length);
+        System.arraycopy(buffer, 0, local_buff, 0, buffer_len);
+
+        inPlaceBytesToLongs(local_buff, local_long_buff);
+
+        F(local_h, local_long_buff, local_t0, t1, true);
+
+        return to_bytes(internal_state_h, nn);
+    }
+
+    private void inPlaceBytesToLongs(byte[] b, long[] l) {
+        for (int i = 0; i < l.length; i++) {
+            l[i] = (b[i << 3] & 0xFF) | ((long) b[(i << 3) + 1] & 0xFF) << 8 | ((long) b[(i << 3) + 2] & 0xFF) << 16 | ((long) b[(i << 3) + 3] & 0xFF) << 24
+                    | ((long) b[(i << 3) + 4] & 0xFF) << 32 | ((long) b[(i << 3) + 5] & 0xFF) << 40 | ((long) b[(i << 3) + 6] & 0xFF) << 48
+                    | ((long) b[(i << 3) + 7] & 0xFF) << 56;
+        }
+    }
+
+    public byte[] blake2b(long[][] d, long ll, byte kk, int nn) {
         long[] h = new long[8];
         System.arraycopy(iv, 0, h, 0, iv.length);
 
@@ -152,7 +341,7 @@ public class Blake2b {
 
     }
 
-    public static byte[] hash(byte[] key, byte[] message, byte nn) {
+    public static byte[] hash(byte[] key, byte[] message, int nn) {
         Blake2b blake = new Blake2b();
 
         byte kk = (byte) (key == null ? 0 : key.length);

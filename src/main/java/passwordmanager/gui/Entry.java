@@ -2,10 +2,10 @@ package passwordmanager.gui;
 
 public class Entry {
     private byte[] username;
-    private byte[] website;
+    private String website;
     private byte[] password;
 
-    public Entry(byte[] website, byte[] username, byte[] password){
+    public Entry(String website, byte[] username, byte[] password){
         this.website = website;
         this.username = username;
         this.password = password;
@@ -15,7 +15,7 @@ public class Entry {
         return username;
     }
 
-    public byte[] getWebsite() {
+    public String getWebsite() {
         return website;
     }
 
