@@ -1,6 +1,6 @@
 package passwordmanager.crypt.kdf.scrypt;
 
-public class salsa20_core {
+class salsa20_core {
 
     private static int leftrotate(int word, int n) {
         return (word << n) | (word >>> (32 - n));
@@ -13,7 +13,7 @@ public class salsa20_core {
         x[a] ^= leftrotate((x[d] + x[c]), 18);
     }
 
-    public static void salsa20_block(int[] out, int[] in, int rounds) {
+    protected static void salsa20_block(int[] out, int[] in, int rounds) {
         int[] x = new int[16];
         System.arraycopy(in, 0, x, 0, 16);
 

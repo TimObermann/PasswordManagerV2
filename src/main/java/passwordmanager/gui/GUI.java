@@ -4,7 +4,7 @@ import de.mkammerer.argon2.Argon2;
 import de.mkammerer.argon2.Argon2Factory;
 import org.json.JSONObject;
 import passwordmanager.crypt.cipher.aes.AES;
-import passwordmanager.crypt.hash.HMAC;
+import passwordmanager.crypt.mac.HMAC;
 import passwordmanager.crypt.hash.SHA2;
 import passwordmanager.crypt.kdf.PBKDF2;
 

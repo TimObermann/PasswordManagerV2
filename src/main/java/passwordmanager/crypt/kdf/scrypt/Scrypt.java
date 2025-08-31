@@ -22,7 +22,10 @@ public class Scrypt {
             throw new IllegalArgumentException("salt must not be null");
         }
         if(parallelization <= 0) {
-            throw new IllegalArgumentException("parallelization must not a value larger than zero");
+            throw new IllegalArgumentException("parallelization must be a value larger than zero");
+        }
+        if(blockSizeFactor <= 0) {
+            throw new IllegalArgumentException("the block size factor must be a value larger than zero");
         }
 
         int blockSize = (blockSizeFactor << 7);
@@ -51,6 +54,7 @@ public class Scrypt {
                     System.arraycopy(block, 0, expensiveSalt, index, block.length);
                     index += block.length;
                 } catch (Exception e) {
+                    pool.shutdown();
                     throw new RuntimeException();
                 }
             }

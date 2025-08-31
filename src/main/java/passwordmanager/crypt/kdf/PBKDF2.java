@@ -1,6 +1,6 @@
 package passwordmanager.crypt.kdf;
 
-import passwordmanager.crypt.hash.HMAC;
+import passwordmanager.crypt.mac.HMAC;
 import passwordmanager.crypt.hash.SHA2;
 
 import java.security.SecureRandom;

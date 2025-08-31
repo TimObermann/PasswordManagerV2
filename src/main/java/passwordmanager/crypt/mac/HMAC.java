@@ -1,4 +1,6 @@
-package passwordmanager.crypt.hash;
+package passwordmanager.crypt.mac;
+
+import passwordmanager.crypt.hash.SHA2;
 
 public class HMAC {
 
