@@ -191,7 +191,7 @@ public class TestCases {
         System.out.println(bytesToHexString(poly1305.poly1305_mac(message, key)));
     }
     private static void run_chacha_test() {
-        ChaCha chaCha = new ChaCha(20, 2);
+        ChaCha chaCha = new ChaCha(20, 1);
 
         int[] key = new int[] {
                 0x03020100, 0x07060504, 0x0b0a0908, 0x0f0e0d0c,
@@ -203,29 +203,24 @@ public class TestCases {
         };
 
         byte[] plaintext = new byte[] {
-                (byte)0x4c, (byte)0x61, (byte)0x64, (byte)0x69, (byte)0x65, (byte)0x73, (byte)0x20, (byte)0x61,
-                (byte)0x6e, (byte)0x64, (byte)0x20, (byte)0x47, (byte)0x65, (byte)0x6e, (byte)0x74, (byte)0x6c,
-                (byte)0x65, (byte)0x6d, (byte)0x65, (byte)0x6e, (byte)0x20, (byte)0x6f, (byte)0x66, (byte)0x20,
-                (byte)0x74, (byte)0x68, (byte)0x65, (byte)0x20, (byte)0x63, (byte)0x6c, (byte)0x61, (byte)0x73,
-                (byte)0x20, (byte)0x6f, (byte)0x66, (byte)0x20, (byte)0x27, (byte)0x39, (byte)0x39, (byte)0x3a,
-                (byte)0x20, (byte)0x49, (byte)0x66, (byte)0x20, (byte)0x49, (byte)0x20, (byte)0x63, (byte)0x6f,
-                (byte)0x75, (byte)0x6c, (byte)0x64, (byte)0x20, (byte)0x6f, (byte)0x66, (byte)0x66, (byte)0x65,
-                (byte)0x72, (byte)0x20, (byte)0x79, (byte)0x6f, (byte)0x75, (byte)0x20, (byte)0x6f, (byte)0x6e,
-                (byte)0x6c, (byte)0x79, (byte)0x20, (byte)0x6f, (byte)0x6e, (byte)0x65, (byte)0x20, (byte)0x74,
-                (byte)0x69, (byte)0x70, (byte)0x20, (byte)0x66, (byte)0x6f, (byte)0x72, (byte)0x20, (byte)0x74,
-                (byte)0x68, (byte)0x65, (byte)0x20, (byte)0x66, (byte)0x75, (byte)0x74, (byte)0x75, (byte)0x72,
-                (byte)0x65, (byte)0x2c, (byte)0x20, (byte)0x73, (byte)0x75, (byte)0x6e, (byte)0x73, (byte)0x63,
-                (byte)0x72, (byte)0x65, (byte)0x65, (byte)0x6e, (byte)0x20, (byte)0x77, (byte)0x6f, (byte)0x75,
-                (byte)0x6c, (byte)0x64, (byte)0x20, (byte)0x62, (byte)0x65, (byte)0x20, (byte)0x69, (byte)0x74,
-                (byte)0x2e
+                0x4c, 0x61, 0x64, 0x69, 0x65, 0x73, 0x20, 0x61, 0x6e, 0x64, 0x20, 0x47, 0x65, 0x6e, 0x74, 0x6c,
+                0x65, 0x6d, 0x65, 0x6e, 0x20, 0x6f, 0x66, 0x20, 0x74, 0x68, 0x65, 0x20, 0x63, 0x6c, 0x61, 0x73,
+                0x73, 0x20, 0x6f, 0x66, 0x20, 0x27, 0x39, 0x39, 0x3a, 0x20, 0x49, 0x66, 0x20, 0x49, 0x20, 0x63,
+                0x6f, 0x75, 0x6c, 0x64, 0x20, 0x6f, 0x66, 0x66, 0x65, 0x72, 0x20, 0x79, 0x6f, 0x75, 0x20, 0x6f,
+                0x6e, 0x6c, 0x79, 0x20, 0x6f, 0x6e, 0x65, 0x20, 0x74, 0x69, 0x70, 0x20, 0x66, 0x6f, 0x72, 0x20,
+                0x74, 0x68, 0x65, 0x20, 0x66, 0x75, 0x74, 0x75, 0x72, 0x65, 0x2c, 0x20, 0x73, 0x75, 0x6e, 0x73,
+                0x63, 0x72, 0x65, 0x65, 0x6e, 0x20, 0x77, 0x6f, 0x75, 0x6c, 0x64, 0x20, 0x62, 0x65, 0x20, 0x69,
+                0x74, 0x2e
         };
 
         //System.out.println(bytesToHexString(chaCha.chacha_encrypt(plaintext, key, 1, nonce)));
+        byte[] ciphertext = chaCha.encrypt(plaintext, key, 1, nonce);
+        //byte[] ciphertext = chaCha.chacha_encrypt("Hello ChaCha20! This is a longer Text so parallelization actually makes sense. Did you know that it's parall -E- lization and not parall -A- lization. I always assumed it would be spelled with an A. Oh well it is what it is!, WOW you really need A LOT of text for a significant amount of bytes. Nevertheless this I will persevere and not run out of ideas on what to ramble in this mini text document. Damn, already ran out. That sucks man. Whatever this should be enough. I'll check real quick!".getBytes(), key, 1, nonce);
 
-        byte[] ciphertext = chaCha.chacha_encrypt("Hello ChaCha20! This is a longer Text so parallelization actually makes sense. Did you know that it's parall -E- lization and not parall -A- lization. I always assumed it would be spelled with an A. Oh well it is what it is!, WOW you really need A LOT of text for a significant amount of bytes. Nevertheless this I will persevere and not run out of ideas on what to ramble in this mini text document. Damn, already ran out. That sucks man. Whatever this should be enough. I'll check real quick!".getBytes(), key, 1, nonce);
+        System.out.println(bytesToHexString(ciphertext));
 
-        //System.out.println(bytesToHexString(ciphertext));
-        System.out.println(new String(chaCha.chacha_encrypt(ciphertext, key, 1, nonce)));
+        //System.out.println(bytesToHexString(chaCha.decrypt(ciphertext, key, 1, nonce)));
+        //System.out.println(new String(chaCha.chacha_encrypt(ciphertext, key, 1, nonce)));
     }
     private static void run_scrypt_test() {
         Scrypt scrypt = new Scrypt();

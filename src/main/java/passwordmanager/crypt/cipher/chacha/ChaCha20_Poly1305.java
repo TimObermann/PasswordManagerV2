@@ -97,6 +97,23 @@ public class ChaCha20_Poly1305 {
         return chaCha.chacha_encrypt(ciphertext, key, 1, nonce);
     }
 
+    public byte[] decrypt(byte[] secret_data, int[] key, int[] nonce, byte[] aad) {
+        byte[] authTag = new byte[16];
+        byte[] ciphertext = new byte[secret_data.length - 16];
+
+        System.arraycopy(secret_data, 0, ciphertext, 0, ciphertext.length);
+        System.arraycopy(secret_data, ciphertext.length, authTag, 0, 16);
+
+        byte[] one_time_key = key_gen(key, nonce);
+        byte[] checkTag = calculateAuthTag(one_time_key, aad, ciphertext);
+
+        if(!compareTags(authTag, checkTag)){
+            throw new AuthenticityViolationError();
+        }
+
+        return chaCha.chacha_encrypt(ciphertext, key, 1, nonce);
+    }
+
     private boolean compareTags(byte[] trueTag, byte[] actualTag) {
         int diff = 0;
 

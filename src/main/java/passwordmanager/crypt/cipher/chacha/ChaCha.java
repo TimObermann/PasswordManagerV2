@@ -135,9 +135,11 @@ public class ChaCha {
         byte[] ciphertext = new byte[plaintext.length];
 
         int block_count = (plaintext.length >> 6);
+        int blocks_per_thread = block_count / parallelization;
+
         byte[] key_stream = new byte[64];
 
-        if(parallelization == 1) {
+        if(parallelization == 1 || blocks_per_thread <= 1) {
             for (int i = 0; i < block_count; i++) {
                 chacha_block(key, init_counter + i, nonce, key_stream);
 
@@ -159,9 +161,6 @@ public class ChaCha {
             ExecutorService pool = Executors.newFixedThreadPool(parallelization);
             Future<byte[]>[] slices = new Future[parallelization];
 
-            int blocks_per_thread = block_count / parallelization;
-
-            //split plaintext into slices and perform chacha_block on each block in a slice
             for (int i = 0; i < parallelization - 1; i++) {
                 byte[] slice = new byte[blocks_per_thread << 6];
                 System.arraycopy(plaintext, (slice.length * i), slice, 0, slice.length);
@@ -173,7 +172,6 @@ public class ChaCha {
                 slices[i] = pool.submit(call);
             }
 
-            //consider last incomplete block
             if((plaintext.length & 63) != 0) {
                 byte[] slice = new byte[plaintext.length - (((parallelization - 1) * blocks_per_thread) << 6)];
                 System.arraycopy(plaintext, plaintext.length - slice.length, slice, 0, slice.length);
@@ -184,7 +182,6 @@ public class ChaCha {
                 slices[parallelization - 1] = pool.submit(call);
             }
 
-            //unify results
             int index = 0;
             for (Future<byte[]> slice : slices) {
                 try {
@@ -194,9 +191,7 @@ public class ChaCha {
                 } catch (Exception e) {
                     pool.shutdown();
 
-                    e.printStackTrace();
-
-                    System.exit(1);
+                    throw new RuntimeException();
                 }
             }
 
