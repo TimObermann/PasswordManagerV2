@@ -5,7 +5,7 @@ import passwordmanager.crypt.hash.SHA2;
 
 import java.security.SecureRandom;
 
-public class PBKDF2 {
+public class PBKDF2 implements KDF{
 
 
     public PBKDF2() {
@@ -17,23 +17,9 @@ public class PBKDF2 {
     private final SecureRandom rand;
     private final int hLen = 32;
 
-    public byte[] generate(char[] password, int c, int dkLen) {
-
-        byte[] tmp = new byte[password.length << 1];
-
-        for (int i = 0; i < password.length; i++) {
-            tmp[i << 1] = (byte) (password[i] & 0xFF);
-            tmp[(i << 1) + 1] = (byte) ((password[i] >> 8) & 0xFF);
-        }
-
-        return generate(tmp, c, dkLen);
-    }
-
-    public byte[] generate(byte[] password, int c, int dkLen) {
-        byte[] salt = new byte[16];
-        rand.nextBytes(salt);
-
-        return generate(password, salt, c, dkLen);
+    @Override
+    public byte[] generate(byte[] password, byte[] salt, int dkLen) {
+        return generate(password, salt, 600_000, dkLen);
     }
 
     public byte[] generate(byte[] password, byte[] salt, int c, int dkLen) {
@@ -56,11 +42,11 @@ public class PBKDF2 {
         System.arraycopy(salt,0, message, 0, salt.length);
         System.arraycopy(int_32_BE(i), 0, message, salt.length, 4);
 
-        message = hmac.generate(message, password, 64);
+        message = hmac.generateTag(message, password);
         System.arraycopy(message, 0, U, 0, hLen);
 
         for (int j = 1; j < c; j++) {
-            message = hmac.generate(message, password, 64);
+            message = hmac.generateTag(message, password);
             array_xor(U, U, message);
         }
 

@@ -1,7 +1,5 @@
 package passwordmanager.crypt.cipher.chacha;
 
-import java.security.SecureRandom;
-
 public class XChaCha {
 
     private final ChaCha chaCha;
@@ -68,5 +66,9 @@ public class XChaCha {
         int[] subkey = HChaCha(key, smallNonce);
 
         return chaCha.chacha_encrypt(plaintext, subkey, init_counter, true_nonce);
+    }
+
+    public byte[] decrypt(byte[] ciphertext, int[] key, int init_counter, int[] nonce) {
+        return encrypt(ciphertext, key, init_counter, nonce);
     }
 }

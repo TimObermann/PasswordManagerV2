@@ -1,6 +1,8 @@
 package passwordmanager.crypt.hash;
 
-public class Blake2b {
+import passwordmanager.crypt.mac.MAC;
+
+public class Blake2b implements Hash, MAC {
 
     private final long[] iv = {
         0x6a09e667f3bcc908L, 0xbb67ae8584caa73bL, 0x3c6ef372fe94f82bL, 0xa54ff53a5f1d36f1L,
@@ -34,6 +36,7 @@ public class Blake2b {
     private long t1;
     private boolean lazy_key_processed;
     private byte[] key;
+    private final int BLOCK_SIZE = 128;
 
     public Blake2b(){
         init(null, 64);
@@ -41,14 +44,6 @@ public class Blake2b {
 
     public Blake2b(int nn) {
         init(null, nn);
-    }
-
-    public Blake2b(byte[] key){
-        init(key, 64);
-    }
-
-    public Blake2b(byte[] key, int nn) {
-        init(key, nn);
     }
 
     public void init(byte[] key, int nn) {
@@ -67,6 +62,11 @@ public class Blake2b {
         this.key = key;
         if(key == null) lazy_key_processed = true;
         else lazy_key_processed = false;
+    }
+
+    @Override
+    public byte[] generateTag(byte[] message, byte[] key) {
+        return Blake2b.hash(key, message, this.result_len);
     }
 
     private long rightrotate(long word, int n) {
@@ -341,7 +341,7 @@ public class Blake2b {
 
     }
 
-    public static byte[] hash(byte[] key, byte[] message, int nn) {
+    private static byte[] hash(byte[] key, byte[] message, int nn) {
         Blake2b blake = new Blake2b();
 
         byte kk = (byte) (key == null ? 0 : key.length);
@@ -368,5 +368,15 @@ public class Blake2b {
         }
 
         return blake.blake2b(d, message.length, kk, nn);
+    }
+
+    @Override
+    public int getDigestSize() {
+        return result_len;
+    }
+
+    @Override
+    public int getBlockSize() {
+        return BLOCK_SIZE;
     }
 }

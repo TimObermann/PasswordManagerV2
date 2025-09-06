@@ -2,7 +2,7 @@ package passwordmanager.crypt.mac;
 
 import java.math.BigInteger;
 
-public class Poly1305 {
+public class Poly1305 implements MAC {
 
     private BigInteger clamp(BigInteger r) {
         return r.and(new BigInteger("0ffffffc0ffffffc0ffffffc0fffffff", 16));
@@ -20,7 +20,7 @@ public class Poly1305 {
         return inv;
     }
 
-    public byte[] poly1305_mac(byte[] message, byte[] key) {
+    private byte[] poly1305_mac(byte[] message, byte[] key) {
 
         BigInteger p = new BigInteger("3fffffffffffffffffffffffffffffffb", 16);
 
@@ -65,4 +65,8 @@ public class Poly1305 {
         return little_endian;
     }
 
+    @Override
+    public byte[] generateTag(byte[] message, byte[] key) {
+        return poly1305_mac(message, key);
+    }
 }

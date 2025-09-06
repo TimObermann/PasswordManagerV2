@@ -1,13 +1,22 @@
 package passwordmanager.crypt.kdf.scrypt;
 
+import passwordmanager.crypt.kdf.KDF;
 import passwordmanager.crypt.kdf.PBKDF2;
 
 import java.util.concurrent.*;
 
-public class Scrypt {
+public class Scrypt implements KDF {
 
     private final PBKDF2 pbkdf2 = new PBKDF2();
 
+    @Override
+    public byte[] generate(byte[] password, byte[] salt, int dkLen) {
+        return scrypt(password, salt, 65536, 8, 1, dkLen);
+    }
+
+    public byte[] generate(byte[] password, byte[] salt, int N, int blockSizeFactor, int parallelization, int dkLen) {
+        return scrypt(password, salt, N, blockSizeFactor, parallelization, dkLen);
+    }
 
     public byte[] scrypt(byte[] password, byte[] salt, int N, int blockSizeFactor, int parallelization, int dkLen) {
 

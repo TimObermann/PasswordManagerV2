@@ -516,6 +516,19 @@ public class AES {
         return o;
     }
 
+    private int[] bytes_to_ints(byte[] bytes) {
+        if((bytes.length & 3) != 0) {
+            throw new InvalidKeyException();
+        }
+
+        int[] ints = new int[bytes.length / 4];
+
+        for (int i = 0; i < ints.length; i++) {
+            ints[i] = (bytes[(i << 2)] & 0xFF) | ((bytes[(i << 2) + 1] & 0xFF) << 8) | ((bytes[(i << 2) + 2] & 0xFF) << 16) | ((bytes[(i << 2) + 3] & 0xFF) << 24);
+        }
+
+        return ints;
+    }
 
     /**
      * The decryption function

@@ -10,7 +10,7 @@ public class Main {
 
         SwingUtilities.invokeLater(() -> {
             JFrame frame = new JFrame("Password Manager");
-            frame.setContentPane(new GUI().passwordPanel);
+            frame.setContentPane(new GUI().dashboardPanel);
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             frame.getContentPane().setBackground(Color.DARK_GRAY);
             frame.pack();

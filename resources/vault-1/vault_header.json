@@ -1,0 +1,34 @@
+{
+  "VAULT_ID" : "",
+  "VAULT_VERSION": 0,
+
+  "MASTER" : {
+      "SALT": [
+
+      ],
+      "N" : 0,
+      "R" : 0,
+      "P": 0
+  },
+
+  "INDEX" : {
+
+    "KDF_PARAMS" : {
+      "SALT" : [
+
+      ],
+
+      "N": 0,
+      "R": 0,
+      "P": 0
+    },
+
+    "NONCE" : [
+
+    ]
+  },
+
+  "AUTH" : [
+
+  ]
+}

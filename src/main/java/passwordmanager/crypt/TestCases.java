@@ -20,7 +20,7 @@ import passwordmanager.crypt.mac.Poly1305;
 public class TestCases {
 
     public static void main(String[] args) {
-        run_chacha_test();
+        run_AES_Test();
     }
 
     private static void run_Xchacha_poly_test() {
@@ -188,7 +188,7 @@ public class TestCases {
                 (byte) 0x75, (byte) 0x70
         };
 
-        System.out.println(bytesToHexString(poly1305.poly1305_mac(message, key)));
+        System.out.println(bytesToHexString(poly1305.generateTag(message, key)));
     }
     private static void run_chacha_test() {
         ChaCha chaCha = new ChaCha(20, 1);
@@ -335,11 +335,11 @@ public class TestCases {
 
         byte[] zero_message = new byte[0];
 
-        Blake2b blake = new Blake2b(key, 64);
+        Blake2b blake = new Blake2b(64);
 
         blake.insert(zero_message);
 
-        System.out.println(bytesToHexString(Blake2b.hash(key, zero_message, 64)));
+        System.out.println(bytesToHexString(blake.generateTag(key, zero_message)));
         System.out.println(bytesToHexString(blake.generate()));
     }
     private static void run_HMAC_test() {
@@ -363,9 +363,9 @@ public class TestCases {
             long_message[i] = (byte) 0xDD;
         }
 
-        System.out.println(bytesToHexString(hmac.generate("Hi There".getBytes(), key, 64)));
-        System.out.println(bytesToHexString(hmac.generate("what do ya want for nothing?".getBytes(), "Jefe".getBytes(), 64)));
-        System.out.println(bytesToHexString(hmac.generate(long_message, long_key, 64)));
+        System.out.println(bytesToHexString(hmac.generateTag("Hi There".getBytes(), key)));
+        System.out.println(bytesToHexString(hmac.generateTag("what do ya want for nothing?".getBytes(), "Jefe".getBytes())));
+        System.out.println(bytesToHexString(hmac.generateTag(long_message, long_key)));
 
 
     }
@@ -375,7 +375,7 @@ public class TestCases {
         System.out.println(bytesToHexString(sha.generate()));
     }
     private static void run_AES_Test(){
-        AES crypt = new AES(AES_SIZE.AES_256, AES_MODE.CTR);
+        AES crypt = new AES(AES_SIZE.AES_256, AES_MODE.CBC);
 
 
 

@@ -1,12 +1,12 @@
 package passwordmanager.crypt.mac;
 
-import passwordmanager.crypt.hash.SHA2;
+import passwordmanager.crypt.hash.Hash;
 
-public class HMAC {
+public class HMAC implements MAC{
 
-    private final SHA2 hashingAlgorithm;
+    private final Hash hashingAlgorithm;
 
-    public HMAC(SHA2 hashingAlgorithm) {
+    public HMAC(Hash hashingAlgorithm) {
         this.hashingAlgorithm = hashingAlgorithm;
     }
 
@@ -15,7 +15,7 @@ public class HMAC {
         byte[] padded_key = new byte[block_size];
 
         if(key.length > block_size) {
-            key = SHA2.hash(key);
+            key = Hash.hash(key, hashingAlgorithm);
             System.arraycopy(key, 0, padded_key, 0, key.length);
         }
         else if (key.length < block_size) {
@@ -29,7 +29,7 @@ public class HMAC {
     }
 
 
-    public byte[] generate(byte[] message, byte[] key, int block_size) {
+    private byte[] generate(byte[] message, byte[] key, int block_size) {
         byte[] padded_key = pad_key(key, block_size);
 
         byte[] inner_key = new byte[padded_key.length];
@@ -49,5 +49,25 @@ public class HMAC {
         hashingAlgorithm.insert(first_hash);
 
         return hashingAlgorithm.generate();
+    }
+
+    @Override
+    public byte[] generateTag(byte[] message, byte[] key) {
+        return generate(message, key, hashingAlgorithm.getBlockSize());
+    }
+
+    public boolean verify(byte[] message, byte[] key, byte[] storedTag) {
+        byte[] attemptedTag = generateTag(message, key);
+
+        int d = 0;
+        for (int i = 0; i < storedTag.length; i++) {
+            d |= storedTag[i] ^ attemptedTag[i];
+        }
+
+        return d == 0;
+    }
+
+    public Hash getHashingAlgorithm() {
+        return hashingAlgorithm;
     }
 }

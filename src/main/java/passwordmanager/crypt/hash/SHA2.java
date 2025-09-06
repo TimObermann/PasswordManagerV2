@@ -1,6 +1,6 @@
 package passwordmanager.crypt.hash;
 
-public class SHA2 {
+public class SHA2 implements Hash{
 
     private final int[] h_init = {
         0x6a09e667,
@@ -38,6 +38,9 @@ public class SHA2 {
     private byte[] message;
     private int message_len;
     private int message_offset;
+
+    private final int DIGEST_SIZE = 32;
+    private final int BLOCK_SIZE = 64;
 
     public SHA2() {
         message = new byte[64];
@@ -197,13 +200,13 @@ public class SHA2 {
         message_schedule = null;
     }
 
-    public static byte[] hash(byte[] input) {
-        SHA2 s = new SHA2();
+    @Override
+    public int getDigestSize() {
+        return DIGEST_SIZE;
+    }
 
-        s.insert(input);
-        byte[] out = s.generate();
-        s.reset();
-
-        return out;
+    @Override
+    public int getBlockSize() {
+        return BLOCK_SIZE;
     }
 }

@@ -39,7 +39,7 @@ public class ChaCha20_Poly1305 {
         System.arraycopy(long_to_bytes(aad.length), 0, tagMessage, aad.length + padding1 + ciphertext.length + padding2, 8);
         System.arraycopy(long_to_bytes(ciphertext.length), 0, tagMessage, aad.length + padding1 + ciphertext.length + padding2 + 8, 8);
 
-        return poly1305.poly1305_mac(tagMessage, otk);
+        return poly1305.generateTag(tagMessage, otk);
     }
 
     public byte[] encrypt(byte[] plaintext, int[] key, byte[] IV, int session_constant, byte[] aad) {

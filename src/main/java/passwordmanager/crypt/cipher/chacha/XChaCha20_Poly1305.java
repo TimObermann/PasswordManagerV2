@@ -1,9 +1,14 @@
 package passwordmanager.crypt.cipher.chacha;
 
+import passwordmanager.crypt.cipher.aes.InvalidKeyException;
+
+import java.security.SecureRandom;
+
 public class XChaCha20_Poly1305 {
 
     private final XChaCha chaCha;
     private final ChaCha20_Poly1305 chaChaPoly;
+    private final SecureRandom rng = new SecureRandom();
 
     public XChaCha20_Poly1305() {
         chaCha = new XChaCha(20);

@@ -20,6 +20,10 @@ public class ChaCha {
         this.parallelization = parallelization;
     }
 
+    public int getRounds() {
+        return ROUNDS;
+    }
+
     private int leftrotate(int word, int n) {
         return (word << n) | (word >>> (32 - n));
     }
@@ -207,9 +211,5 @@ public class ChaCha {
 
     public byte[] decrypt(byte[] ciphertext, int[] key, int initial_counter, int[] nonce) {
         return chacha_encrypt(ciphertext, key, initial_counter, nonce);
-    }
-
-    public int getRounds() {
-        return ROUNDS;
     }
 }
