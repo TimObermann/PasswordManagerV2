@@ -2,7 +2,19 @@ package passwordmanager.gui;
 
 import passwordmanager.crypt.cipher.aes.InvalidKeyException;
 
+import java.util.Base64;
+
 public class GUI_Util {
+
+    static String serialize(int[] ints) {
+        return Base64.getUrlEncoder().encodeToString(GUI_Util.toBytes(ints));
+    }
+    static String serialize(byte[] ints) {
+        return Base64.getUrlEncoder().encodeToString(ints);
+    }
+    static byte[] deserialize(String base) {
+        return Base64.getUrlDecoder().decode(base);
+    }
 
     static void zeroArray(char[] a) {
         if(a == null) return;
@@ -170,5 +182,16 @@ public class GUI_Util {
             data[i >> 1] = (byte) ((Character.digit(hex.charAt(i), 16) << 4) + Character.digit(hex.charAt(i + 1), 16));
         }
         return data;
+    }
+
+    static String bytesToHexString(byte[] bytes) {
+        if (bytes == null) {
+            return null;
+        }
+        StringBuilder hexString = new StringBuilder();
+        for (byte b : bytes) {
+            hexString.append(String.format("%02x", b));
+        }
+        return hexString.toString();
     }
 }

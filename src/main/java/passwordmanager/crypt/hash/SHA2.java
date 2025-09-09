@@ -138,6 +138,7 @@ public class SHA2 implements Hash{
         return finish();
     }
 
+    @Override
     public byte[] generate() {
         byte[] o = finish();
         reset();

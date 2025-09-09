@@ -4,21 +4,44 @@ public class RadixTree {
 
     public static class Node {
         private char[] val;
-        java.util.HashMap<CharArray, Node> edges;
+        private java.util.HashMap<CharArray, Node> edges;
         private Pointer ptr;
 
         public Node() {
+            val = null;
             edges = new java.util.HashMap<>();
             ptr = null;
         }
 
         public Node(char[] val, Pointer p) {
+            edges = new java.util.HashMap<>();
             this.val = val;
             ptr = p;
         }
 
         public void addEdge(char[] edge, Node child) {
             edges.put(new CharArray(edge), child);
+        }
+
+        public void zeroSubtree() {
+            if(!edges.isEmpty()) {
+
+                java.util.List<CharArray> pointerSet = new java.util.ArrayList<>(edges.keySet());
+
+                for (Node n : edges.values()) {
+                    n.zeroSubtree();
+                }
+
+                edges.clear();
+
+                for (CharArray a : pointerSet) {
+                    a.zero();
+                }
+
+            }
+
+            if(val != null) GUI_Util.zeroArray(val);
+            if(ptr != null ) ptr.zero();
         }
 
         public char[] getVal() {
@@ -171,6 +194,10 @@ public class RadixTree {
         return result;
     }
 
+    public java.util.List<String> getAllWords() {
+        java.util.Set<CharArray> set = collectAllEntries().keySet();
+        return set.stream().map(c -> new String(c.array)).toList();
+    }
     private void collectAllWords(Node node, char[] prefix, java.util.List<String> results) {
         if(node.ptr != null) results.add(new String(prefix));
 
@@ -196,7 +223,6 @@ public class RadixTree {
             collectAllFinalNodes(node.edges.get(edge), GUI_Util.merge(word, edge.array), nodes);
         }
     }
-
     private PrefixSearchResult findNodeForPrefix(Node node, char[] remainingPrefix, char[] acc) {
         if(remainingPrefix.length == 0) {
             return new PrefixSearchResult(node, acc);
@@ -228,7 +254,6 @@ public class RadixTree {
         if(word == null || word.length == 0) return null;
         return lookup(root, word);
     }
-
     private Pointer lookup(Node node, char[] word) {
         for (CharArray edge : node.edges.keySet()) {
             Node child = node.edges.get(edge);
@@ -299,6 +324,10 @@ public class RadixTree {
         CharArray word = new CharArray(w);
         Node n = new Node(w, ptr);
         root.edges.put(word, n);
+    }
+
+    public void zero() {
+        root.zeroSubtree();
     }
 
 }

@@ -39,3 +39,6 @@ build/
 
 src/main/java/passwordmanager/crypt/kdf/argon2
 src/main/java/passwordmanager/crypt/kdf/argon2/*
+
+resources
+resources/*

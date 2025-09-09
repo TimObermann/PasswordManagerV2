@@ -16,7 +16,6 @@ import java.awt.*;
 import java.awt.event.*;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
@@ -24,14 +23,13 @@ import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
-import java.util.Base64;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
 
 
-public class GUI {
+public class Dashboard {
     //components
-    public JPanel dashboardPanel;
+    private JPanel dashboardPanel;
     private JList<String> entries;
     private JButton AddButton;
     private JTextField websiteTextField;
@@ -67,9 +65,13 @@ public class GUI {
     private JTextField SearchBar;
     private JPanel SearchBarPanel;
     private JLabel StoredAccoundsLabel;
+    private JButton LogoutButton;
     private DefaultListModel<String> listModel;
 
-    public GUI() {
+    public Dashboard(LoginListener listener) {
+
+        this.listener = listener;
+
         SecureRandom tmp;
         try{
             tmp = SecureRandom.getInstanceStrong();
@@ -79,8 +81,8 @@ public class GUI {
 
         random = tmp;
 
-        ImageIcon settingsicon = new ImageIcon("src/main/resources/user_settings.png");
-        SettingsButton.setIcon(settingsicon);
+        SettingsButton.setIcon(new ImageIcon("src/main/resources/user_settings.png"));
+        LogoutButton.setIcon(new ImageIcon("src/main/resources/logout.png"));
 
         Border black = BorderFactory.createLineBorder(Color.BLACK, 5);
         Border outer = BorderFactory.createLineBorder(Color.darkGray, 5);
@@ -108,6 +110,7 @@ public class GUI {
         ChangePasswordPanel.setOpaque(true);
 
         SettingsButton.setOpaque(true);
+        LogoutButton.setOpaque(true);
 
         AddPanel.setBackground(Color.GRAY);
         OpenDataPanel.setBackground(Color.GRAY);
@@ -125,6 +128,8 @@ public class GUI {
 
         SettingsButton.setBackground(Color.DARK_GRAY);
         SettingsButton.setBorderPainted(false);
+        LogoutButton.setBackground(Color.DARK_GRAY);
+        LogoutButton.setBorderPainted(false);
 
         SearchBar.setBorder(black);
         AddPanel.setBorder(border);
@@ -245,10 +250,17 @@ public class GUI {
                 search(e.getKeyChar());
             }
         });
+        LogoutButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                logout();
+            }
+        });
     }
 
     private boolean hasObscuredRandomPassword;
 
+    private final LoginListener listener;
     private final SecureRandom random;
     private final Scrypt kdf = new Scrypt();
     private final Hash hash = new SHA2();
@@ -268,16 +280,62 @@ public class GUI {
 
     private final Path vaults = Path.of(VAULTS);
     private JSONObject header = null;
-    private final RadixTree prefixTree = new RadixTree();
+    private RadixTree prefixTree = new RadixTree();
 
-    private String serialize(int[] ints) {
-        return Base64.getEncoder().encodeToString(GUI_Util.toBytes(ints));
+    private String canconical_serializeJSON(JSONObject obj) {
+        StringBuilder str = new StringBuilder();
+
+        List<String> keys = new ArrayList<>(obj.keySet());
+        Collections.sort(keys);
+
+        str.append("{");
+
+        for (int i = 0; i < keys.size(); i++) {
+            String key = keys.get(i);
+            Object value = obj.get(key);
+
+            str.append("\"").append(key).append("\":");
+
+            if (value instanceof JSONObject) {
+                str.append(canconical_serializeJSON((JSONObject) value)); // Recurse for nested objects
+            } else if (value instanceof JSONArray) {
+                str.append(canconical_serializeJSON((JSONArray) value)); // Handle arrays
+            } else if (value instanceof String) {
+                str.append("\"").append(value).append("\"");
+            } else {
+                str.append(value.toString());
+            }
+
+            if (i < keys.size() - 1) {
+                str.append(",");
+            }
+        }
+
+        str.append("}");
+        return str.toString();
     }
-    private String serialize(byte[] ints) {
-        return Base64.getEncoder().encodeToString(ints);
-    }
-    private byte[] deserialize(String base) {
-        return Base64.getDecoder().decode(base);
+    private String canconical_serializeJSON(JSONArray arr) {
+        StringBuilder str = new StringBuilder();
+        str.append("[");
+        for (int i = 0; i < arr.length(); i++) {
+            Object value = arr.get(i);
+
+            if (value instanceof JSONObject) {
+                str.append(canconical_serializeJSON((JSONObject) value));
+            } else if (value instanceof JSONArray) {
+                str.append(canconical_serializeJSON((JSONArray) value));
+            } else if (value instanceof String) {
+                str.append("\"").append(value).append("\"");
+            } else {
+                str.append(value.toString());
+            }
+
+            if (i < arr.length() - 1) {
+                str.append(",");
+            }
+        }
+        str.append("]");
+        return str.toString();
     }
 
     private void updateIndex(byte[] plain_index_data) {
@@ -285,19 +343,19 @@ public class GUI {
         if(header == null) throw new VaultSecurityViolation();
 
         String auth_json = header.getString("AUTH");
-        byte[] authTag = deserialize(auth_json);
+        byte[] authTag = GUI_Util.deserialize(auth_json);
 
 
         JSONObject master = header.getJSONObject("MASTER");
         JSONObject index = header.getJSONObject("INDEX");
 
         String master_salt_json = master.getString("SALT");
-        byte[] master_salt = deserialize(master_salt_json);
+        byte[] master_salt = GUI_Util.deserialize(master_salt_json);
 
         JSONObject kdf_params = index.getJSONObject("KDF_PARAMS");
 
         String index_salt_json = kdf_params.getString("SALT");
-        byte[] index_salt = deserialize(index_salt_json);
+        byte[] index_salt =  GUI_Util.deserialize(index_salt_json);
 
         String vaultName = header.getString("VAULT_ID");
         int vault_version = header.getInt("VAULT_VERSION");
@@ -307,11 +365,11 @@ public class GUI {
         int index_R = kdf_params.getInt("R");
 
         String nonce_json = index.getString("NONCE");
-        int[] nonce = GUI_Util.bytes_to_ints(deserialize(nonce_json));
+        int[] nonce = GUI_Util.bytes_to_ints(GUI_Util.deserialize(nonce_json));
 
         byte[] aad = createIndexAAD(master_salt, index_salt, nonce, authTag, vaultName, vault_version);
 
-        byte[] derived_key_index = kdf.scrypt(derivedKey, index_salt, index_N, index_P, index_R, 32);
+        byte[] derived_key_index = kdf.scrypt(derivedKey, index_salt, index_N, index_R, index_P, 32);
 
         int[] derived_key_index_as_ints = GUI_Util.bytes_to_ints(derived_key_index);
         byte[] encrypted_index_data = cipher.encrypt(plain_index_data, derived_key_index_as_ints, nonce, aad);
@@ -326,25 +384,18 @@ public class GUI {
 
         if(derivedKey == null || header == null) throw new VaultSecurityViolation();
 
-        String auth_json = header.getString("AUTH");
-        byte[] authTag = deserialize(auth_json);
-
-        header.remove("AUTH");
-        if(!hmac.verify(header.toString().getBytes(StandardCharsets.UTF_8), derivedKey, authTag)) {
-            throw new VaultSecurityViolation();
-        }
-        header.put("AUTH", auth_json);
+        byte[] authTag = verifyHeader();
 
         JSONObject master = header.getJSONObject("MASTER");
         JSONObject index = header.getJSONObject("INDEX");
 
         String master_salt_json = master.getString("SALT");
-        byte[] master_salt = deserialize(master_salt_json);
+        byte[] master_salt = GUI_Util.deserialize(master_salt_json);
 
         JSONObject kdf_params = index.getJSONObject("KDF_PARAMS");
 
         String index_salt_json = kdf_params.getString("SALT");
-        byte[] index_salt = deserialize(index_salt_json);
+        byte[] index_salt = GUI_Util.deserialize(index_salt_json);
 
         String vaultName = header.getString("VAULT_ID");
         int vault_version = header.getInt("VAULT_VERSION");
@@ -353,10 +404,10 @@ public class GUI {
         int index_P = kdf_params.getInt("P");
         int index_R = kdf_params.getInt("R");
 
-        byte[] derived_key_index = kdf.scrypt(derivedKey, index_salt, index_N, index_P, index_R, 32);
+        byte[] derived_key_index = kdf.scrypt(derivedKey, index_salt, index_N, index_R, index_P, 32);
 
         String nonce_json = index.getString("NONCE");
-        int[] nonce = GUI_Util.bytes_to_ints(deserialize(nonce_json));
+        int[] nonce = GUI_Util.bytes_to_ints(GUI_Util.deserialize(nonce_json));
 
         byte[] aad = createIndexAAD(master_salt, index_salt, nonce, authTag, vaultName, vault_version);
 
@@ -389,6 +440,10 @@ public class GUI {
         }
     }
     private void deserializeIndex(byte[] plain_index_data, RadixTree prefixTree) {
+
+        if(plain_index_data.length < 6) {
+            return;
+        }
 
         char[] words = GUI_Util.toChars(plain_index_data);
 
@@ -452,6 +507,7 @@ public class GUI {
 
         return GUI_Util.toBytes(data);
     }
+
     private void readHeader() {
 
         if(derivedKey == null) throw new VaultSecurityViolation();
@@ -459,22 +515,26 @@ public class GUI {
 
         try {
             byte[] header_bytes = Files.readAllBytes(header_path);
+            header = new JSONObject(new String(header_bytes, StandardCharsets.UTF_8));
 
-            header = new JSONObject(new String(header_bytes));
-
-            String auth_json = header.getString("AUTH");
-            byte[] authTag = deserialize(auth_json);
-
-            header.remove("AUTH");
-            if(!hmac.verify(header.toString().getBytes(StandardCharsets.UTF_8), derivedKey, authTag)) {
-                throw new VaultSecurityViolation();
-            }
-            header.put("AUTH", authTag);
-
+            verifyHeader();
         } catch (IOException e) {
             throw new VaultSecurityViolation();
         }
 
+    }
+    private byte[] verifyHeader() {
+        JSONObject deepCopy = new JSONObject(header.toString());
+
+        String auth_json = deepCopy.getString("AUTH");
+        byte[] authTag = GUI_Util.deserialize(auth_json);
+
+        deepCopy.remove("AUTH");
+        if(!hmac.verify(canconical_serializeJSON(deepCopy).getBytes(StandardCharsets.UTF_8), derivedKey, authTag)) {
+            throw new VaultSecurityViolation();
+        }
+
+        return authTag;
     }
 
     private Pointer secure_append(byte[] encrypted_data, Path destPath) {
@@ -576,7 +636,10 @@ public class GUI {
         }
     }
 
-    private void createUser(char[] username, byte[] password, int vault_version) {
+    void createUser(String username, char[] password_chars, int vault_version) {
+
+        byte[] password = GUI_Util.toBytes(password_chars);
+        GUI_Util.zeroArray(password_chars);
 
         final int master_N = 65536;
         final int master_R = 8;
@@ -591,10 +654,9 @@ public class GUI {
         byte[] derived_vault_password = kdf.generate(password, salt, master_N, master_R, master_P, 32);
         GUI_Util.zeroArray(password);
 
-        byte[] username_bytes = GUI_Util.toBytes(username);
-        GUI_Util.zeroArray(username);
+        byte[] username_bytes = username.getBytes(StandardCharsets.UTF_8);
 
-        String vaultName = new String(hmac.generateTag(username_bytes, derived_vault_password));
+        String vaultName = GUI_Util.serialize(hmac.generateTag(username_bytes, derived_vault_password));
         GUI_Util.zeroArray(username_bytes);
 
         Path vault = vaults.resolve(Path.of(VAULT_PREFIX + vaultName));
@@ -607,10 +669,12 @@ public class GUI {
         database = vault.resolve(database);
 
         try {
-            Files.createDirectory(vault);
+
+            Files.createDirectories(vault);
             Files.createFile(header);
             Files.createFile(index);
             Files.createFile(database);
+
         } catch (IOException e) {
 
             try {
@@ -623,10 +687,10 @@ public class GUI {
                 System.err.println("Could not delete remainder of file structure for vault-" + vaultName);
             }
 
+            e.printStackTrace();
+
             throw new VaultSecurityViolation();
         }
-
-        JSONObject index_data = new JSONObject();
 
         byte[] index_salt = new byte[16];
         random.nextBytes(index_salt);
@@ -639,36 +703,36 @@ public class GUI {
         JSONObject master_params = new JSONObject();
         JSONObject index_params = new JSONObject();
 
-        master_params.put("SALT", serialize(salt));
+        master_params.put("SALT", GUI_Util.serialize(salt));
         master_params.put("N", master_N);
         master_params.put("R", master_R);
         master_params.put("P", master_P);
 
         JSONObject index_kdf_params = new JSONObject();
-        index_kdf_params.put("SALT", serialize(index_salt));
+        index_kdf_params.put("SALT", GUI_Util.serialize(index_salt));
         index_kdf_params.put("N", index_N);
         index_kdf_params.put("R", index_R);
         index_kdf_params.put("P", index_P);
 
         index_params.put("KDF_PARAMS", index_kdf_params);
-        index_params.put("NONCE", serialize(nonce));
+        index_params.put("NONCE", GUI_Util.serialize(nonce));
 
         baseHeader.put("VAULT_ID", vaultName);
         baseHeader.put("VAULT_VERSION", vault_version);
         baseHeader.put("MASTER", master_params);
         baseHeader.put("INDEX", index_params);
 
-        byte[] authTag = hmac.generateTag(baseHeader.toString().getBytes(StandardCharsets.UTF_8), derived_vault_password);
+        byte[] authTag = hmac.generateTag(canconical_serializeJSON(baseHeader).getBytes(StandardCharsets.UTF_8), derived_vault_password);
 
-        baseHeader.put("AUTH", serialize(authTag));
+        baseHeader.put("AUTH", GUI_Util.serialize(authTag));
 
         byte[] aad_index = createIndexAAD(salt, index_salt, nonce, authTag, vaultName, vault_version);
-        byte[] encrypted_index_data = cipher.encrypt(index_data.toString().getBytes(StandardCharsets.UTF_8), GUI_Util.bytes_to_ints(derived_index_key), nonce, aad_index);
+        byte[] encrypted_index_data = cipher.encrypt("".getBytes(StandardCharsets.UTF_8), GUI_Util.bytes_to_ints(derived_index_key), nonce, aad_index);
 
         secure_write(encrypted_index_data, index);
-        secure_write(baseHeader.toString(), header);
+        secure_write(canconical_serializeJSON(baseHeader), header);
     }
-    private void deleteUser(String vaultName) {
+    void deleteUser(String vaultName) {
 
         Path toDelete = vaults.resolve(Path.of(VAULT_PREFIX + vaultName));
 
@@ -761,8 +825,28 @@ public class GUI {
         updateIndex(newIndex);
     }
 
-    private void login() {
+    void login(LoginData data) {
+        this.derivedKey = data.derivedVaultPassword();
+        this.vaultName = data.vaultName();
+        this.header = data.header();
 
+        byte[] index = readIndex();
+
+        deserializeIndex(index, prefixTree);
+        listModel.addAll(prefixTree.getAllWords());
+    }
+    void logout() {
+        byte[] clear_index_data = serializeIndex(prefixTree);
+        updateIndex(clear_index_data);
+
+        vacuum();
+
+        prefixTree.zero();
+        prefixTree = new RadixTree();
+
+        listModel.clear();
+
+        listener.onLogout();
     }
 
     private void addEntry(String account, String username, char[] password) {
@@ -808,16 +892,18 @@ public class GUI {
 
         Pointer location = writeToDatabase(ciphertext_with_meta);
         prefixTree.insert(account.toCharArray(), location);
+        listModel.addElement(account);
     }
     private void deleteEntry() {
 
     }
 
-
     private char[] searchbuffer = new char[0];
     private int search_index = 0;
-
     private void search(char c) {
+
+        if(prefixTree == null) throw new VaultSecurityViolation();
+
         if(searchbuffer.length == search_index) {
             char[] tmp = new char[searchbuffer.length << 3];
             System.arraycopy(searchbuffer, 0, tmp, 0, search_index);
@@ -834,7 +920,7 @@ public class GUI {
 
     private byte[] createIndexAAD(byte[] master_salt, byte[] index_salt, int[] nonce, byte[] authTag, String vaultName, int vault_version) {
 
-        byte[] aad_index = new byte[index_salt.length + (nonce.length << 2) + master_salt.length + authTag.length + vaultName.getBytes(StandardCharsets.UTF_8).length + 4];
+        byte[] aad_index = new byte[index_salt.length + (nonce.length << 2) + master_salt.length + authTag.length + GUI_Util.deserialize(vaultName).length + 4];
         int offset = 0;
         System.arraycopy(index_salt, 0, aad_index, offset, index_salt.length);
         offset += index_salt.length;
@@ -844,8 +930,8 @@ public class GUI {
         offset += master_salt.length;
         System.arraycopy(authTag, 0, aad_index, offset, authTag.length);
         offset += authTag.length;
-        System.arraycopy(vaultName.getBytes(StandardCharsets.UTF_8), 0, aad_index, offset, vaultName.getBytes(StandardCharsets.UTF_8).length);
-        offset += vaultName.getBytes(StandardCharsets.UTF_8).length;
+        System.arraycopy(GUI_Util.deserialize(vaultName), 0, aad_index, offset, GUI_Util.deserialize(vaultName).length);
+        offset += GUI_Util.deserialize(vaultName).length;
         System.arraycopy(GUI_Util.toBytes(vault_version), 0, aad_index, offset, 4);
 
         return aad_index;
@@ -853,8 +939,8 @@ public class GUI {
     private char[] generateRandomPassword(int dkLen) {
 
         char[] charset = new char[94];
-        for (int i = 33; i < 127; i++) {
-            charset[i] = (char) i;
+        for (int i = 0; i < 94; i++) {
+            charset[i] = (char) (i + 33);
         }
 
         char[] out = new char[dkLen];
@@ -865,4 +951,9 @@ public class GUI {
 
         return out;
     }
+
+    public JPanel getPanel() {
+        return dashboardPanel;
+    }
+
 }
