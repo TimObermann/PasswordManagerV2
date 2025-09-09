@@ -12,7 +12,7 @@ public class UserDialogue extends JDialog {
 
     private UserDialogueListener listener;
     private final boolean type;
-    //
+    /// /
     public UserDialogue(UserDialogueListener listener, boolean type) {
 
         this.listener = listener;
