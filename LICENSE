@@ -1,7 +1,46 @@
-Non-Commercial License
+Copyleft Non-Commercial License (CNCL)
+Version 1.1 — 2025
 
-You are free to use, copy, modify, and distribute this software
-for non-commercial purposes only. Commercial use is prohibited
-without prior written permission from the author.
+Copyright (C) 2025 Tim Obermann
 
-(C) 2025 Tim Obermann
+Permission is hereby granted to any person obtaining a copy of this software
+and associated documentation files (the “Software”), to use, copy, modify, and
+distribute the Software and derivative works thereof for **non-commercial
+purposes only**, subject to the following conditions:
+
+1. Non-Commercial Use
+   Commercial use of the Software, in whole or in part, is prohibited without
+   prior written permission from the copyright holder. “Commercial use”
+   includes any use intended for or directed toward commercial advantage,
+   monetary compensation, or proprietary internal business purposes.
+
+2. Copyleft
+   Any modified or derivative work must be distributed under the same terms
+   as this license and must retain this notice in its entirety.
+
+3. Attribution
+   You must give appropriate credit, including a link to the original source
+   repository (if applicable), and indicate if changes were made.
+
+4. Author’s Rights
+   The copyright holder retains the exclusive right to grant, deny, or
+   negotiate permission for commercial use of the Software.  
+   The copyright holder also retains the right to distribute the Software
+   under different licensing terms to any party at any time.
+
+5. License Modification
+   The copyright holder reserves the right to modify or replace this license
+   with a new version at any time. Such changes will not retroactively affect
+   copies obtained under previous versions, but future distributions of the
+   Software may be subject to the new terms.
+
+6. No Warranty
+   The Software is provided “as is”, without warranty of any kind, express or
+   implied, including but not limited to the warranties of merchantability,
+   fitness for a particular purpose, and noninfringement. In no event shall
+   the authors or copyright holders be liable for any claim, damages, or
+   other liability, whether in an action of contract, tort, or otherwise,
+   arising from, out of, or in connection with the Software or the use or
+   other dealings in the Software.
+
+END OF TERMS
